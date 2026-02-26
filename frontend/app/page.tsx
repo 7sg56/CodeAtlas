@@ -36,6 +36,40 @@ const FRAMEWORK_COLORS: Record<string, string> = {
   Fastify: "#000000",
   "Nuxt.js": "#00c58e",
   "Node.js": "#339933",
+  // Python
+  "Django (Python)": "#092e20",
+  "Flask (Python)": "#000000",
+  "FastAPI (Python)": "#009688",
+  "Streamlit (Python)": "#ff4b4b",
+  "Tornado (Python)": "#4c768d",
+  // Java
+  "Spring Boot (Java)": "#6db33f",
+  "Spring (Java)": "#6db33f",
+  "Quarkus (Java)": "#4695eb",
+  "Micronaut (Java)": "#1a1a1a",
+  "Java Project": "#b07219",
+  // Rust
+  "Actix (Rust)": "#000000",
+  "Axum (Rust)": "#dea584",
+  "Rocket (Rust)": "#d33847",
+  "Tauri (Rust)": "#ffc131",
+  "Warp (Rust)": "#dea584",
+  "Rust Project": "#dea584",
+  // Go
+  "Gin (Go)": "#00add8",
+  "Echo (Go)": "#00add8",
+  "Fiber (Go)": "#00add8",
+  "Gorilla (Go)": "#00add8",
+  "Go Project": "#00add8",
+  // PHP
+  "Laravel (PHP)": "#ff2d20",
+  "Symfony (PHP)": "#000000",
+  "Slim (PHP)": "#74a045",
+  "PHP Project": "#4f5d95",
+  // Ruby
+  "Ruby on Rails": "#cc0000",
+  "Sinatra (Ruby)": "#000000",
+  "Ruby Project": "#cc342d",
   Unknown: "#666680",
 };
 
