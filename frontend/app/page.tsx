@@ -19,7 +19,8 @@ interface FileNode {
 
 interface AnalysisResult {
   repoId: string;
-  framework: string;
+  frameworks?: string[];
+  framework?: string; // backward compat with old API
   languages: LanguageInfo[];
   stats: { files: number; folders: number };
   structure: FileNode[];
@@ -365,41 +366,56 @@ export default function Home() {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "8px",
-                  padding: "8px 16px",
-                  background: "var(--bg-secondary)",
+                  padding: "6px 12px",
+                  background: "var(--bg-tertiary)",
                   border: "1px solid var(--border-subtle)",
                   borderRadius: "var(--radius-md)",
+                  flexWrap: "wrap",
                 }}
               >
-                <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Framework
-                </span>
                 <span
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "3px 10px",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    background: `${FRAMEWORK_COLORS[data.framework] || "#666680"}20`,
-                    color: data.framework === "Next.js" || data.framework === "Fastify"
-                      ? "var(--text-primary)"
-                      : FRAMEWORK_COLORS[data.framework] || "var(--text-primary)",
-                    border: `1px solid ${FRAMEWORK_COLORS[data.framework] || "#666680"}30`,
+                    fontSize: "11px",
+                    fontWeight: 500,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
                   }}
                 >
-                  <span
-                    style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      background: FRAMEWORK_COLORS[data.framework] || "#666680",
-                    }}
-                  />
-                  {data.framework}
+                  {(data.frameworks?.length || 0) > 1 ? "Frameworks" : "Framework"}
                 </span>
+                {(data.frameworks || (data.framework ? [data.framework] : ["Unknown"])).map((fw) => {
+                  const darkBadge = fw === "Next.js" || fw === "Fastify" || fw === "Flask (Python)" || fw === "Actix (Rust)" || fw === "Symfony (PHP)" || fw === "Sinatra (Ruby)" || fw === "Micronaut (Java)";
+                  return (
+                    <span
+                      key={fw}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "3px 10px",
+                        borderRadius: "var(--radius-sm)",
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        background: `${FRAMEWORK_COLORS[fw] || "#666680"}20`,
+                        color: darkBadge
+                          ? "var(--text-primary)"
+                          : FRAMEWORK_COLORS[fw] || "var(--text-primary)",
+                        border: `1px solid ${FRAMEWORK_COLORS[fw] || "#666680"}30`,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: "8px",
+                          height: "8px",
+                          borderRadius: "50%",
+                          background: FRAMEWORK_COLORS[fw] || "#666680",
+                        }}
+                      />
+                      {fw}
+                    </span>
+                  );
+                })}
               </div>
 
               {/* File count */}

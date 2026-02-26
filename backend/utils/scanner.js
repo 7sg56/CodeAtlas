@@ -139,10 +139,11 @@ function countNodes(tree) {
   return { files, folders };
 }
 
-// Helper: find a file at root or one level deep
-function findFile(repoPath, filename) {
+// Helper: find files at root or one level deep
+function findFiles(repoPath, filename) {
+  const files = [];
   const rootFile = path.join(repoPath, filename);
-  if (fs.existsSync(rootFile)) return rootFile;
+  if (fs.existsSync(rootFile)) files.push(rootFile);
 
   // Check one level deep (common in monorepos)
   try {
@@ -152,13 +153,13 @@ function findFile(repoPath, filename) {
       try {
         if (fs.statSync(subPath).isDirectory()) {
           const nested = path.join(subPath, filename);
-          if (fs.existsSync(nested)) return nested;
+          if (fs.existsSync(nested)) files.push(nested);
         }
       } catch (e) { /* skip */ }
     }
   } catch (e) { /* skip */ }
 
-  return null;
+  return files;
 }
 
 // Helper: read file contents, case-insensitive search
@@ -174,31 +175,33 @@ async function readAndMatch(filePath, patterns) {
 }
 
 async function detectFramework(repoPath) {
+  const frameworks = new Set(); // Use Set to avoid duplicates (e.g., matching React in two package.json)
+
   // 1. Node.js (package.json)
-  const pkgFile = findFile(repoPath, "package.json");
-  if (pkgFile) {
+  const pkgFiles = findFiles(repoPath, "package.json");
+  for (const pkgFile of pkgFiles) {
     try {
       const pkg = await fs.readJson(pkgFile);
       const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
-      if (deps["@nestjs/core"]) return "NestJS";
-      if (deps["next"]) return "Next.js";
-      if (deps["nuxt"]) return "Nuxt.js";
-      if (deps["@angular/core"]) return "Angular";
-      if (deps["vue"]) return "Vue.js";
-      if (deps["svelte"]) return "Svelte";
-      if (deps["express"]) return "Express";
-      if (deps["fastify"]) return "Fastify";
-      if (deps["react"]) return "React";
-      return "Node.js";
+      if (deps["@nestjs/core"]) frameworks.add("NestJS");
+      else if (deps["next"]) frameworks.add("Next.js");
+      else if (deps["nuxt"]) frameworks.add("Nuxt.js");
+      else if (deps["@angular/core"]) frameworks.add("Angular");
+      else if (deps["vue"]) frameworks.add("Vue.js");
+      else if (deps["svelte"]) frameworks.add("Svelte");
+      else if (deps["express"]) frameworks.add("Express");
+      else if (deps["fastify"]) frameworks.add("Fastify");
+      else if (deps["react"]) frameworks.add("React");
+      else frameworks.add("Node.js");
     } catch (e) { /* skip */ }
   }
 
   // 2. Python (requirements.txt, pyproject.toml, setup.py, Pipfile)
   const pyFiles = ["requirements.txt", "pyproject.toml", "setup.py", "Pipfile"];
   for (const pyFile of pyFiles) {
-    const found = findFile(repoPath, pyFile);
-    if (found) {
+    const foundFiles = findFiles(repoPath, pyFile);
+    for (const found of foundFiles) {
       const result = await readAndMatch(found, [
         ["django", "Django (Python)"],
         ["flask", "Flask (Python)"],
@@ -206,15 +209,15 @@ async function detectFramework(repoPath) {
         ["streamlit", "Streamlit (Python)"],
         ["tornado", "Tornado (Python)"],
       ]);
-      if (result) return result;
+      if (result) frameworks.add(result);
     }
   }
 
   // 3. Java/Kotlin (pom.xml, build.gradle, build.gradle.kts)
   const javaFiles = ["pom.xml", "build.gradle", "build.gradle.kts"];
   for (const javaFile of javaFiles) {
-    const found = findFile(repoPath, javaFile);
-    if (found) {
+    const foundFiles = findFiles(repoPath, javaFile);
+    for (const found of foundFiles) {
       const result = await readAndMatch(found, [
         ["spring-boot", "Spring Boot (Java)"],
         ["org.springframework.boot", "Spring Boot (Java)"],
@@ -222,14 +225,13 @@ async function detectFramework(repoPath) {
         ["quarkus", "Quarkus (Java)"],
         ["micronaut", "Micronaut (Java)"],
       ]);
-      if (result) return result;
-      return "Java Project";
+      frameworks.add(result || "Java Project");
     }
   }
 
   // 4. Rust (Cargo.toml)
-  const cargoFile = findFile(repoPath, "Cargo.toml");
-  if (cargoFile) {
+  const cargoFiles = findFiles(repoPath, "Cargo.toml");
+  for (const cargoFile of cargoFiles) {
     const result = await readAndMatch(cargoFile, [
       ["actix-web", "Actix (Rust)"],
       ["axum", "Axum (Rust)"],
@@ -237,47 +239,44 @@ async function detectFramework(repoPath) {
       ["tauri", "Tauri (Rust)"],
       ["warp", "Warp (Rust)"],
     ]);
-    if (result) return result;
-    return "Rust Project";
+    frameworks.add(result || "Rust Project");
   }
 
   // 5. Go (go.mod)
-  const goFile = findFile(repoPath, "go.mod");
-  if (goFile) {
+  const goFiles = findFiles(repoPath, "go.mod");
+  for (const goFile of goFiles) {
     const result = await readAndMatch(goFile, [
       ["github.com/gin-gonic/gin", "Gin (Go)"],
       ["github.com/labstack/echo", "Echo (Go)"],
       ["github.com/gofiber/fiber", "Fiber (Go)"],
       ["github.com/gorilla/mux", "Gorilla (Go)"],
     ]);
-    if (result) return result;
-    return "Go Project";
+    frameworks.add(result || "Go Project");
   }
 
   // 6. PHP (composer.json)
-  const composerFile = findFile(repoPath, "composer.json");
-  if (composerFile) {
+  const composerFiles = findFiles(repoPath, "composer.json");
+  for (const composerFile of composerFiles) {
     const result = await readAndMatch(composerFile, [
       ["laravel/framework", "Laravel (PHP)"],
       ["symfony/symfony", "Symfony (PHP)"],
       ["slim/slim", "Slim (PHP)"],
     ]);
-    if (result) return result;
-    return "PHP Project";
+    frameworks.add(result || "PHP Project");
   }
 
   // 7. Ruby (Gemfile)
-  const gemFile = findFile(repoPath, "Gemfile");
-  if (gemFile) {
+  const gemFiles = findFiles(repoPath, "Gemfile");
+  for (const gemFile of gemFiles) {
     const result = await readAndMatch(gemFile, [
       ["rails", "Ruby on Rails"],
       ["sinatra", "Sinatra (Ruby)"],
     ]);
-    if (result) return result;
-    return "Ruby Project";
+    frameworks.add(result || "Ruby Project");
   }
 
-  return "Unknown";
+  const resultArr = Array.from(frameworks);
+  return resultArr.length > 0 ? resultArr : ["Unknown"];
 }
 
 module.exports = { buildTree, detectFramework, detectLanguages, countNodes };

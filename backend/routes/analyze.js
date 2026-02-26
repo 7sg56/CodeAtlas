@@ -21,13 +21,13 @@ router.post("/", async (req, res) => {
     await simpleGit().clone(githubUrl, repoPath, ["--depth", "1"]);
 
     const tree = await buildTree(repoPath);
-    const framework = await detectFramework(repoPath);
+    const frameworks = await detectFramework(repoPath);
     const languages = detectLanguages(tree);
     const stats = countNodes(tree);
 
     res.json({
       repoId,
-      framework,
+      frameworks,
       languages,
       stats,
       structure: tree,
