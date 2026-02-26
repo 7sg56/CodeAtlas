@@ -2,7 +2,7 @@ const express = require("express");
 const simpleGit = require("simple-git");
 const fs = require("fs-extra");
 const path = require("path");
-const { buildTree, detectFramework } = require("../utils/scanner");
+const { buildTree, detectFramework, detectLanguages, countNodes } = require("../utils/scanner");
 const { v4: uuidv4 } = require("uuid");
 
 const router = express.Router();
@@ -22,10 +22,14 @@ router.post("/", async (req, res) => {
 
     const tree = await buildTree(repoPath);
     const framework = await detectFramework(repoPath);
+    const languages = detectLanguages(tree);
+    const stats = countNodes(tree);
 
     res.json({
       repoId,
       framework,
+      languages,
+      stats,
       structure: tree,
     });
   } catch (err) {
