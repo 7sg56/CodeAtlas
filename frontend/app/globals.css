@@ -9,7 +9,7 @@
   --border-accent: #3a3a4f;
   --text-primary: #e8e8f0;
   --text-secondary: #9898b0;
-  --text-muted: #6868806b;
+  --text-muted: #686880;
   --accent-blue: #6c8cff;
   --accent-purple: #a87cff;
   --accent-green: #5ce0a0;
@@ -19,6 +19,7 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -32,9 +33,14 @@
   box-sizing: border-box;
 }
 
+html {
+  background: #0a0a0f;
+  color: #e8e8f0;
+}
+
 body {
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  background: #0a0a0f !important;
+  color: #e8e8f0 !important;
   font-family: var(--font-geist-sans), "Inter", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -45,35 +51,59 @@ body {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border-accent);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px rgba(108, 140, 255, 0.15); }
-  50% { box-shadow: 0 0 20px rgba(108, 140, 255, 0.3); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(108, 140, 255, 0.15);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(108, 140, 255, 0.3);
+  }
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-fade-in {

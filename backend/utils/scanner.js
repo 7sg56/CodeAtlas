@@ -86,13 +86,21 @@ async function buildTree(dir) {
   );
 }
 
+// Languages excluded from primary stats (like GitHub Linguist).
+// Data languages and prose languages are excluded.
+const EXCLUDED_LANGUAGES = new Set([
+  "JSON", "YAML", "XML", "SQL", "Markdown",
+  "TOML", "INI", "Environment", "Protocol Buffers",
+]);
+
 function detectLanguages(tree) {
-  const counts = {};
+  const bytesByLang = {};
 
   function walk(nodes) {
     for (const node of nodes) {
-      if (node.type === "file" && node.language) {
-        counts[node.language] = (counts[node.language] || 0) + 1;
+      if (node.type === "file" && node.language && !EXCLUDED_LANGUAGES.has(node.language)) {
+        const size = node.size || 0;
+        bytesByLang[node.language] = (bytesByLang[node.language] || 0) + size;
       }
       if (node.children) {
         walk(node.children);
@@ -102,15 +110,15 @@ function detectLanguages(tree) {
 
   walk(tree);
 
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const total = Object.values(bytesByLang).reduce((a, b) => a + b, 0);
 
-  return Object.entries(counts)
-    .map(([language, count]) => ({
+  return Object.entries(bytesByLang)
+    .map(([language, bytes]) => ({
       language,
-      count,
-      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+      bytes,
+      percentage: total > 0 ? Math.round((bytes / total) * 1000) / 10 : 0,
     }))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.bytes - a.bytes);
 }
 
 function countNodes(tree) {
