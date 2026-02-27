@@ -1,7 +1,7 @@
 FROM node:22-alpine
 
-# Install git since simple-git requires the git binary
-RUN apk add --no-cache git
+# Install git (for simple-git) and build tools (for tree-sitter native addons)
+RUN apk add --no-cache git python3 make g++
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN npm install
 COPY . .
 
 # Expose backend port
-EXPOSE 5001
+EXPOSE ${PORT:-5001}
 
 # Start the server
 CMD ["node", "index.js"]

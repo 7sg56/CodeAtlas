@@ -17,6 +17,21 @@ interface FileNode {
   children?: FileNode[];
 }
 
+interface EntrypointInfo {
+  file: string;
+  type: string;
+  line: number;
+  snippet: string;
+}
+
+interface RouteInfo {
+  file: string;
+  method: string;
+  path: string;
+  line: number;
+  framework: string;
+}
+
 interface AnalysisResult {
   repoId: string;
   frameworks?: string[];
@@ -24,6 +39,10 @@ interface AnalysisResult {
   languages: LanguageInfo[];
   stats: { files: number; folders: number };
   structure: FileNode[];
+  entrypoints?: EntrypointInfo[];
+  routes?: RouteInfo[];
+  analysis?: { filesAnalyzed: number };
+  cached?: boolean;
 }
 
 const FRAMEWORK_COLORS: Record<string, string> = {
@@ -71,6 +90,32 @@ const FRAMEWORK_COLORS: Record<string, string> = {
   "Ruby on Rails": "#cc0000",
   "Sinatra (Ruby)": "#000000",
   "Ruby Project": "#cc342d",
+  // AST-detected names (without language suffix)
+  FastAPI: "#009688",
+  Flask: "#000000",
+  Django: "#092e20",
+  Gin: "#00add8",
+  Echo: "#00add8",
+  Fiber: "#00add8",
+  Actix: "#000000",
+  Axum: "#dea584",
+  Rocket: "#d33847",
+  Tauri: "#ffc131",
+  Electron: "#47848f",
+  "Spring Boot": "#6db33f",
+  Spring: "#6db33f",
+  Koa: "#333333",
+  Hapi: "#f5a623",
+  Prisma: "#2d3748",
+  TypeORM: "#e83524",
+  Sequelize: "#3b76c3",
+  GraphQL: "#e535ab",
+  "Apollo GraphQL": "#311c87",
+  "Socket.io": "#010101",
+  Mongoose: "#800000",
+  "Tailwind CSS": "#38bdf8",
+  Sinatra: "#000000",
+  Rails: "#cc0000",
   Unknown: "#666680",
 };
 
@@ -113,7 +158,8 @@ export default function Home() {
     setData(null);
 
     try {
-      const res = await fetch("http://localhost:5001/api/analyze", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+      const res = await fetch(`${apiUrl}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ githubUrl: url }),
@@ -537,6 +583,257 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Entrypoints Section */}
+            {data.entrypoints && data.entrypoints.length > 0 && (
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "20px",
+                }}
+              >
+                <h4
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginTop: 0,
+                    marginBottom: "16px",
+                  }}
+                >
+                  Entrypoints
+                </h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {data.entrypoints.map((ep, i) => (
+                    <div
+                      key={`${ep.file}-${ep.line}-${i}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "10px 14px",
+                        background: "var(--bg-tertiary)",
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--border-subtle)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                          padding: "2px 8px",
+                          borderRadius: "var(--radius-sm)",
+                          background: ep.type === "server_bootstrap"
+                            ? "rgba(108, 140, 255, 0.15)"
+                            : ep.type === "client_bootstrap"
+                              ? "rgba(160, 120, 255, 0.15)"
+                              : "rgba(72, 199, 142, 0.15)",
+                          color: ep.type === "server_bootstrap"
+                            ? "var(--accent-blue)"
+                            : ep.type === "client_bootstrap"
+                              ? "var(--accent-purple)"
+                              : "var(--accent-green)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {ep.type.replace(/_/g, " ")}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "13px",
+                          fontFamily: "var(--font-geist-mono), monospace",
+                          color: "var(--text-primary)",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {ep.file}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--text-muted)",
+                          marginLeft: "auto",
+                          flexShrink: 0,
+                        }}
+                      >
+                        line {ep.line}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* API Routes Section */}
+            {data.routes && data.routes.length > 0 && (
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "20px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                  <h4
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "var(--text-muted)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      margin: 0,
+                    }}
+                  >
+                    API Routes
+                  </h4>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--text-muted)",
+                      background: "var(--bg-tertiary)",
+                      padding: "2px 8px",
+                      borderRadius: "var(--radius-sm)",
+                      fontFamily: "var(--font-geist-mono), monospace",
+                    }}
+                  >
+                    {data.routes.length} endpoint{data.routes.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {data.routes.map((route, i) => {
+                    const methodColors: Record<string, string> = {
+                      GET: "#48c78e",
+                      POST: "#6c8cff",
+                      PUT: "#f5a623",
+                      PATCH: "#f5a623",
+                      DELETE: "#ff6b7a",
+                      USE: "#888",
+                      ALL: "#a078ff",
+                      CONTROLLER: "#e0234e",
+                      RESOURCE: "#cc0000",
+                    };
+                    const color = methodColors[route.method] || "#888";
+                    return (
+                      <div
+                        key={`${route.method}-${route.path}-${route.file}-${i}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          padding: "8px 14px",
+                          background: "var(--bg-tertiary)",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid var(--border-subtle)",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 800,
+                            fontFamily: "var(--font-geist-mono), monospace",
+                            letterSpacing: "0.5px",
+                            padding: "2px 8px",
+                            borderRadius: "var(--radius-sm)",
+                            background: `${color}20`,
+                            color: color,
+                            minWidth: "60px",
+                            textAlign: "center" as const,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {route.method}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontFamily: "var(--font-geist-mono), monospace",
+                            color: "var(--text-primary)",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {route.path}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--text-muted)",
+                            marginLeft: "auto",
+                            flexShrink: 0,
+                            fontFamily: "var(--font-geist-mono), monospace",
+                          }}
+                        >
+                          {route.file}:{route.line}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            color: "var(--text-muted)",
+                            background: "var(--bg-secondary)",
+                            padding: "1px 6px",
+                            borderRadius: "var(--radius-sm)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {route.framework}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Analysis Stats */}
+            {data.analysis && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "8px 16px",
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-md)",
+                  }}
+                >
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    AST Parsed
+                  </span>
+                  <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-blue)" }}>
+                    {data.analysis.filesAnalyzed} files
+                  </span>
+                </div>
+                {data.cached && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      color: "var(--accent-green)",
+                      background: "rgba(72, 199, 142, 0.1)",
+                      padding: "4px 10px",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                  >
+                    Cached result
+                  </span>
+                )}
               </div>
             )}
 
