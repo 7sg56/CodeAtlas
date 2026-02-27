@@ -5,9 +5,9 @@ RUN apk add --no-cache git python3 make g++
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (--legacy-peer-deps: tree-sitter-java peer expects ^0.21 but we use 0.25)
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy application code
 COPY . .
