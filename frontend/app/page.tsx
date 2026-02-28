@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import FileTree from "./components/FileTree";
+import MermaidDiagram from "./components/MermaidDiagram";
+import { buildMermaidDiagram, buildDependencyDiagram } from "./utils/buildMermaidDiagram";
 
 interface LanguageInfo {
   language: string;
@@ -32,6 +34,11 @@ interface RouteInfo {
   framework: string;
 }
 
+interface DependencyInfo {
+  from: string;
+  to: string;
+}
+
 interface AnalysisResult {
   repoId: string;
   frameworks?: string[];
@@ -41,6 +48,7 @@ interface AnalysisResult {
   structure: FileNode[];
   entrypoints?: EntrypointInfo[];
   routes?: RouteInfo[];
+  dependencies?: DependencyInfo[];
   analysis?: { filesAnalyzed: number };
   cached?: boolean;
 }
@@ -180,6 +188,20 @@ export default function Home() {
   };
 
   const repoName = url.split("/").filter(Boolean).slice(-1)[0] || "Repository";
+
+  const mermaidSyntax = useMemo(() => {
+    if (!data) return "";
+    return buildMermaidDiagram({
+      frameworks: data.frameworks || (data.framework ? [data.framework] : []),
+      entrypoints: data.entrypoints,
+      routes: data.routes,
+    });
+  }, [data]);
+
+  const depDiagramSyntax = useMemo(() => {
+    if (!data || !data.dependencies) return "";
+    return buildDependencyDiagram({ dependencies: data.dependencies });
+  }, [data]);
 
   return (
     <div
@@ -789,6 +811,38 @@ export default function Home() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* API Flow Diagram */}
+            {mermaidSyntax && (
+              <MermaidDiagram syntax={mermaidSyntax} />
+            )}
+
+            {/* File Dependencies Diagram */}
+            {depDiagramSyntax && (
+              <div
+                style={{
+                  background: "var(--bg-secondary)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "20px",
+                }}
+              >
+                <h4
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "var(--text-muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    marginTop: 0,
+                    marginBottom: "16px",
+                  }}
+                >
+                  File Dependencies
+                </h4>
+                <MermaidDiagram syntax={depDiagramSyntax} title={null} />
               </div>
             )}
 

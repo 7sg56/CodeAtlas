@@ -50,6 +50,7 @@ router.post("/", async (req, res) => {
       structure: tree,
       entrypoints: astResult.entrypoints,
       routes: astResult.routes,
+      dependencies: astResult.dependencies,
       analysis: {
         filesAnalyzed: astResult.filesAnalyzed,
       },
