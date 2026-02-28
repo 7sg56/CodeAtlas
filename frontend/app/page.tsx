@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import FileTree from "./components/FileTree";
 import MermaidDiagram from "./components/MermaidDiagram";
-import { buildMermaidDiagram, buildDependencyDiagram } from "./utils/buildMermaidDiagram";
+import { buildArchitectureDiagram } from "./utils/buildMermaidDiagram";
 
 interface LanguageInfo {
   language: string;
@@ -158,6 +158,7 @@ export default function Home() {
   const [data, setData] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clearingCache, setClearingCache] = useState(false);
 
   const analyze = async () => {
     if (!url.trim()) return;
@@ -187,20 +188,30 @@ export default function Home() {
     }
   };
 
+  const clearCache = async () => {
+    setClearingCache(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+      await fetch(`${apiUrl}/api/cache`, { method: "DELETE" });
+      // Re-analyze to get a fresh (non-cached) result
+      await analyze();
+    } catch (err: any) {
+      setError(err.message || "Failed to clear cache");
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
   const repoName = url.split("/").filter(Boolean).slice(-1)[0] || "Repository";
 
-  const mermaidSyntax = useMemo(() => {
+  const architectureSyntax = useMemo(() => {
     if (!data) return "";
-    return buildMermaidDiagram({
+    return buildArchitectureDiagram({
       frameworks: data.frameworks || (data.framework ? [data.framework] : []),
       entrypoints: data.entrypoints,
       routes: data.routes,
+      dependencies: data.dependencies,
     });
-  }, [data]);
-
-  const depDiagramSyntax = useMemo(() => {
-    if (!data || !data.dependencies) return "";
-    return buildDependencyDiagram({ dependencies: data.dependencies });
   }, [data]);
 
   return (
@@ -814,36 +825,9 @@ export default function Home() {
               </div>
             )}
 
-            {/* API Flow Diagram */}
-            {mermaidSyntax && (
-              <MermaidDiagram syntax={mermaidSyntax} />
-            )}
-
-            {/* File Dependencies Diagram */}
-            {depDiagramSyntax && (
-              <div
-                style={{
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "20px",
-                }}
-              >
-                <h4
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    marginTop: 0,
-                    marginBottom: "16px",
-                  }}
-                >
-                  File Dependencies
-                </h4>
-                <MermaidDiagram syntax={depDiagramSyntax} title={null} />
-              </div>
+            {/* Architecture Overview */}
+            {architectureSyntax && (
+              <MermaidDiagram syntax={architectureSyntax} title="Architecture Overview" />
             )}
 
             {/* Analysis Stats */}
@@ -875,18 +859,41 @@ export default function Home() {
                   </span>
                 </div>
                 {data.cached && (
-                  <span
+                  <button
+                    onClick={clearCache}
+                    disabled={clearingCache}
                     style={{
                       fontSize: "11px",
-                      fontWeight: 500,
-                      color: "var(--accent-green)",
-                      background: "rgba(72, 199, 142, 0.1)",
-                      padding: "4px 10px",
+                      fontWeight: 600,
+                      color: clearingCache ? "var(--text-muted)" : "var(--accent-amber)",
+                      background: clearingCache
+                        ? "var(--bg-tertiary)"
+                        : "rgba(245, 166, 35, 0.1)",
+                      padding: "5px 12px",
                       borderRadius: "var(--radius-sm)",
+                      border: `1px solid ${clearingCache ? "var(--border-subtle)" : "rgba(245, 166, 35, 0.25)"}`,
+                      cursor: clearingCache ? "not-allowed" : "pointer",
+                      transition: "all 0.2s ease",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
                     }}
                   >
-                    Cached result
-                  </span>
+                    {clearingCache && (
+                      <span
+                        className="animate-spin"
+                        style={{
+                          display: "inline-block",
+                          width: "10px",
+                          height: "10px",
+                          border: "1.5px solid var(--text-muted)",
+                          borderTopColor: "var(--accent-amber)",
+                          borderRadius: "50%",
+                        }}
+                      />
+                    )}
+                    {clearingCache ? "Clearing..." : "Cached -- Clear cache"}
+                  </button>
                 )}
               </div>
             )}

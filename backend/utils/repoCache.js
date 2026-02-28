@@ -73,6 +73,24 @@ function setCached(url, result) {
   cache.set(key, { result, timestamp: Date.now() });
 }
 
+/**
+ * Clear the entire in-memory cache and remove all cloned repos.
+ * Returns the number of cache entries that were cleared.
+ */
+async function clearCache() {
+  const count = cache.size;
+  cache.clear();
+  await cleanupAllRepos();
+  return count;
+}
+
+/**
+ * Return the current number of entries in the in-memory cache.
+ */
+function getCacheSize() {
+  return cache.size;
+}
+
 // ---------------------------------------------------------------------------
 // Repo cleanup utilities
 // ---------------------------------------------------------------------------
@@ -165,6 +183,8 @@ module.exports = {
   normalizeUrl,
   cleanupRepo,
   cleanupAllRepos,
+  clearCache,
+  getCacheSize,
   startPeriodicCleanup,
   REPO_DIR,
 };
