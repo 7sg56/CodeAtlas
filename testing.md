@@ -2,51 +2,59 @@
 
 This document tracks the testing of the CodeAtlas AI Analysis Engine across diverse full-stack environments.
 
-## 1. Primary Bug Tracking: Framework Deduplication
-**Issue:** [Spring Boot] and [Spring Boot (Java)] appearing as separate tags.
-**Goal:** Verify that the `MetadataService` canonicalizes these into a single `Spring Boot` tag.
+---
+
+## 📊 Test Repository Registry
+
+### Group 1: Spring Boot & Java (Backend Focused)
+| Repository | Frameworks (Deduplicated) | Entrypoints (Line #) | API Routes Count | Arch Map |
+| :--- | :--- | :--- | :--- | :--- |
+| [Spring PetClinic](https://github.com/spring-petclinic/spring-petclinic-reactjs) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [Fullstack Boilerplate](https://github.com/DevSkillsHQ/fullstack-boilerplate-java-springboot-react-typescript) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [React-Spring CRUD](https://github.com/RameshMF/ReactJS-Spring-Boot-CRUD-Full-Stack-App) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [React and Spring](https://github.com/kantega/react-and-spring) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [Dockerized Spring/React](https://github.com/jhordyess/dockerized-spring-react-mysql) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [In28Minutes Examples](https://github.com/in28minutes/spring-boot-react-fullstack-examples) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+
+### Group 2: Node.js & MERN (Fullstack Focused)
+| Repository | Entrypoint (Server) | API Routes Detected | Language Split % | Arch Map |
+| :--- | :--- | :--- | :--- | :--- |
+| [MERN E-Commerce](https://github.com/HuXn-WebDev/MERN-E-Commerce-Store) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [MERN Stack Example](https://github.com/mongodb-developer/mern-stack-example) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [MERN Starter](https://github.com/joshuaslate/mern-starter) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [MERN CRUD](https://github.com/MiladJoodi/MERN_Stack_CRUD) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [Node-Express-Postgres](https://github.com/japananh/node-express-postgres-boilerplate) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [Simple React Full Stack](https://github.com/crsandeep/simple-react-full-stack) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
+| [Clean Architecture Node](https://github.com/panagiop/node.js-clean-architecture) | ⚪ Pending | ⚪ Pending | ⚪ Pending | ⚪ Pending |
 
 ---
 
-## 2. Test Repository Registry
+## 🛠️ Verification Checklist (Per Dashboard UI)
 
-### Group A: Java & Spring Boot (The "Deduplication" Group)
-| Repository | Analysis Status | Duplicate Tags Found? | Key Entrypoint Detected |
-| :--- | :--- | :--- | :--- |
-| [Spring PetClinic (React)](https://github.com/spring-petclinic/spring-petclinic-reactjs) | ⚪ Pending | [ ] Yes / [ ] No | `PetClinicApplication.java` |
-| [Fullstack Boilerplate](https://github.com/DevSkillsHQ/fullstack-boilerplate-java-springboot-react-typescript) | ⚪ Pending | [ ] Yes / [ ] No | `BackendApplication.java` |
-| [React-Spring CRUD](https://github.com/RameshMF/ReactJS-Spring-Boot-CRUD-Full-Stack-App) | ⚪ Pending | [ ] Yes / [ ] No | `SpringBootBackendApplication` |
-| [React and Spring (Kantega)](https://github.com/kantega/react-and-spring) | ⚪ Pending | [ ] Yes / [ ] No | `Application.java` |
-| [Dockerized Spring/React](https://github.com/jhordyess/dockerized-spring-react-mysql) | ⚪ Pending | [ ] Yes / [ ] No | `DockerSpringApplication` |
-| [Spring-Boot-React-Examples](https://github.com/in28minutes/spring-boot-react-fullstack-examples) | ⚪ Pending | [ ] Yes / [ ] No | Multi-module detection |
+### 1. Header & Metadata
+- [ ] **Framework Tags:** Only canonical names appear (e.g., just `Spring Boot`).
+- [ ] **Counters:** File and Folder counts match the actual repository structure.
 
-### Group B: Node.js & MERN Stack (The "Discovery" Group)
-| Repository | Analysis Status | API Endpoints Found | Modules Identified |
-| :--- | :--- | :--- | :--- |
-| [MERN Stack Project (Topic)](https://github.com/topics/mern-stack-project) | ⚪ Pending | /api/... | Backend, Client |
-| [MERN E-Commerce Store](https://github.com/HuXn-WebDev/MERN-E-Commerce-Store) | ⚪ Pending | /api/products | Auth, Products |
-| [MERN Stack Example (Mongo)](https://github.com/mongodb-developer/mern-stack-example) | ⚪ Pending | /record | Server, Client |
-| [MERN Starter](https://github.com/joshuaslate/mern-starter) | ⚪ Pending | /api/post | Controllers, Models |
-| [MERN CRUD](https://github.com/MiladJoodi/MERN_Stack_CRUD) | ⚪ Pending | /tasks | Express Server |
-| [Node-Express-Postgres](https://github.com/japananh/node-express-postgres-boilerplate) | ⚪ Pending | /v1/auth | Middlewares, Services |
-| [Simple React Full Stack](https://github.com/crsandeep/simple-react-full-stack) | ⚪ Pending | /api/getUsername | Webpack, Express |
+### 2. Languages Section
+- [ ] **Accuracy:** Percentage breakdown matches the GitHub language bar for that repo.
+- [ ] **Visuals:** Bar colors correspond to the language (Java: Orange, JS: Yellow, etc.).
 
-### Group C: Advanced Architecture Mapping
-| Repository | Focus | Expected Architecture Graph |
-| :--- | :--- | :--- |
-| [Node.js Clean Architecture](https://github.com/panagiop/node.js-clean-architecture) | Layers | `Controllers -> Use Cases -> Domain` |
+### 3. Entrypoints Section
+- [ ] **Main Function:** Identifies the correct `@SpringBootApplication` or `server.js` file.
+- [ ] **Server Bootstrap:** Points to the specific line where the server starts (e.g., `SpringApplication.run` or `app.listen`).
+
+### 4. API Routes Section
+- [ ] **Method:** Correct color coding for `GET`, `POST`, `PUT`, `DELETE`.
+- [ ] **Path Extraction:** Full REST path is visible (e.g., `/api/v1/users`).
+- [ ] **Controller Link:** Clicking the route navigates to the exact file and line number in the code.
+
+### 5. Architecture Overview
+- [ ] **Hierarchy:** Top-level "Server" node points to "Entrypoint" node.
+- [ ] **Routing:** Entrypoint node connects to a central "API Routes" hub.
+- [ ] **Endpoints:** The hub branches out into individual endpoint nodes.
 
 ---
 
-## 3. Correctness Properties (Validation Checklist)
-
-According to the Design Document, each repo must pass:
-
-- [ ] **Property 3 (Overview):** Summary, primary language, and technologies are present.
-- [ ] **Property 5 (Module Detection):** Every file is assigned to exactly one module.
-- [ ] **Property 7 (Onboarding):** Path generated has 5–20 relevant steps.
-- [ ] **Property 10 (API Discovery):** HTTP Method and Path are extracted for all routes.
-- [ ] **Property 16 (Sanitization):** No API keys leaked to AI Analysis Engine.
-
-## 4. Notes & Observations
-*Use this section to record how the LLM handles specific file-level explanations.*
+## 📝 Analysis Notes
+*Use this space to document any "hallucinations" or parsing errors found during testing.*
+- **Issue #001:** Duplicate Spring Boot tags identified in `ANIMAL-MERGE-GAME` analyze view.
