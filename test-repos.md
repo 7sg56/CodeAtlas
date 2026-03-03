@@ -19,25 +19,41 @@
 - [Simple React Full Stack](https://github.com/crsandeep/simple-react-full-stack)
 - [Clean Architecture Node](https://github.com/panagiop/node.js-clean-architecture)
 
+### Backend-Heavy (Python & Others)
+- [FastAPI RealWorld App](https://github.com/nsidnev/fastapi-realworld-example-app)
+- [Django RealWorld App](https://github.com/gothinkster/django-realworld-example-app)
+- [Flask RealWorld App](https://github.com/gothinkster/flask-realworld-example-app)
+- [Celery Task Queue](https://github.com/celery/celery)
+- [Airflow (Data Engineering)](https://github.com/apache/airflow)
+
 ### Go
 - [Go Gin RealWorld App](https://github.com/gothinkster/golang-gin-realworld-example-app)
 - [Go Echo RealWorld App](https://github.com/gothinkster/echo-realworld-example-app)
 - [Gin Examples Collection](https://github.com/gin-gonic/examples)
+- [Kubernetes (Core Infrastructure)](https://github.com/kubernetes/kubernetes)
+- [Docker Engine](https://github.com/moby/moby)
+- [Prometheus](https://github.com/prometheus/prometheus)
 
 ### Ruby & Rails
 - [Rails RealWorld App](https://github.com/gothinkster/rails-realworld-example-app)
 - [Discourse (Large Codebase)](https://github.com/discourse/discourse)
 - [Lobsters](https://github.com/lobsters/lobsters)
+- [GitLab (Massive Rails App)](https://github.com/gitlabhq/gitlabhq)
+- [Mastodon (Social Network)](https://github.com/mastodon/mastodon)
 
 ### PHP & Laravel/Symfony
 - [Laravel RealWorld App](https://github.com/gothinkster/laravel-realworld-example-app)
 - [Symfony Demo Application](https://github.com/symfony/demo)
 - [BookStack](https://github.com/BookStackApp/BookStack)
+- [WordPress (Classic Backend)](https://github.com/WordPress/WordPress)
+- [Flarum (Forum Software)](https://github.com/flarum/flarum)
 
 ### Rust
 - [Rust Actix RealWorld App](https://github.com/gothinkster/rust-actixweb-realworld-example-app)
 - [Rust Rocket RealWorld App](https://github.com/gothinkster/rust-rocket-realworld-example-app)
 - [Actix Examples Collection](https://github.com/actix/examples)
+- [ripgrep (CLI Tool)](https://github.com/BurntSushi/ripgrep)
+- [Meilisearch (Search Engine)](https://github.com/meilisearch/meilisearch)
 
 ## ✅ Verification Checklist
 - [ ] Framework tags & counters correct

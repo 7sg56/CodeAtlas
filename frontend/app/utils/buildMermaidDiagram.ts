@@ -170,10 +170,6 @@ function isNoise(p: string): boolean {
     return NOISE.some((r) => r.test(p));
 }
 
-function basename(p: string): string {
-    const s = p.split("/");
-    return s[s.length - 1];
-}
 
 // Auto-classify a file into a role based on its path
 type FileRole =

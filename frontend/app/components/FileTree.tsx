@@ -153,7 +153,7 @@ function getExtLabel(ext: string): string | null {
 /*  Tree Node                                                          */
 /* ------------------------------------------------------------------ */
 
-function TreeNode({ node, depth = 0, isLast = false }: { node: FileNode; depth?: number; isLast?: boolean }) {
+function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
     const [isOpen, setIsOpen] = useState(depth < 1);
     const isFolder = node.type === "folder";
     const hasChildren = isFolder && node.children && node.children.length > 0;
@@ -272,7 +272,6 @@ function TreeNode({ node, depth = 0, isLast = false }: { node: FileNode; depth?:
                             key={`${child.name}-${i}`}
                             node={child}
                             depth={depth + 1}
-                            isLast={i === sorted.length - 1}
                         />
                     ))}
                 </div>
@@ -304,7 +303,7 @@ export default function FileTree({ tree }: { tree: FileNode[] }) {
             }}
         >
             {sorted.map((node, i) => (
-                <TreeNode key={`${node.name}-${i}`} node={node} depth={0} isLast={i === sorted.length - 1} />
+                <TreeNode key={`${node.name}-${i}`} node={node} depth={0} />
             ))}
         </div>
     );

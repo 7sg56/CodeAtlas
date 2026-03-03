@@ -49,8 +49,8 @@ interface AnalysisResult {
   entrypoints?: EntrypointInfo[];
   routes?: RouteInfo[];
   dependencies?: DependencyInfo[];
-  symbols?: any[];
-  complexity?: any[];
+  symbols?: unknown[];
+  complexity?: unknown[];
   analysis?: {
     filesAnalyzed: number;
     summary?: {
@@ -170,6 +170,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
   const [uploadName, setUploadName] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"overview" | "api" | "files">("overview");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
@@ -195,8 +196,9 @@ export default function Home() {
 
       const result = await res.json();
       setData(result);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -224,8 +226,9 @@ export default function Home() {
 
       const result = await res.json();
       setData(result);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Something went wrong");
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -252,8 +255,9 @@ export default function Home() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(downloadUrl);
-    } catch (err: any) {
-      setError(err.message || "Failed to export documentation");
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Failed to export documentation");
     }
   };
 
@@ -263,8 +267,9 @@ export default function Home() {
       await fetch(`${apiUrl}/api/cache`, { method: "DELETE" });
       // Re-analyze to get a fresh (non-cached) result
       await analyze();
-    } catch (err: any) {
-      setError(err.message || "Failed to clear cache");
+    } catch (err: unknown) {
+      const error = err as Error;
+      setError(error.message || "Failed to clear cache");
     } finally {
       setClearingCache(false);
     }
@@ -412,7 +417,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main style={{ maxWidth: "960px", margin: "0 auto", padding: "40px 24px" }}>
+      <main style={{ width: "100vw", maxWidth: "100%", padding: "40px 5vw" }}>
         {/* Hero Section */}
         {!data && !loading && (
           <div
@@ -597,482 +602,576 @@ export default function Home() {
 
         {/* Results */}
         {data && (
-          <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            {/* Repo name header */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div className="animate-fade-in" style={{ display: "flex", gap: "40px", alignItems: "flex-start", marginTop: "16px" }}>
+            {/* Sidebar */}
+            <aside
+              style={{
+                width: "220px",
+                flexShrink: 0,
+                position: "sticky",
+                top: "32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
+            >
               <h3
                 style={{
-                  fontSize: "22px",
-                  fontWeight: 600,
-                  margin: 0,
-                  letterSpacing: "-0.3px",
-                }}
-              >
-                {repoName}
-              </h3>
-            </div>
-
-            {/* Stats Row */}
-            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-              {/* Framework Badge */}
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "6px 12px",
-                  background: "var(--bg-tertiary)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                  flexWrap: "wrap",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 500,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                  }}
-                >
-                  {(data.frameworks?.length || 0) > 1 ? "Frameworks" : "Framework"}
-                </span>
-                {(data.frameworks || (data.framework ? [data.framework] : ["Unknown"])).map((fw) => {
-                  const darkBadge = fw === "Next.js" || fw === "Fastify" || fw === "Flask (Python)" || fw === "Actix (Rust)" || fw === "Symfony (PHP)" || fw === "Sinatra (Ruby)" || fw === "Micronaut (Java)";
-                  return (
-                    <span
-                      key={fw}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "3px 10px",
-                        borderRadius: "var(--radius-sm)",
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        background: `${FRAMEWORK_COLORS[fw] || "#666680"}20`,
-                        color: darkBadge
-                          ? "var(--text-primary)"
-                          : FRAMEWORK_COLORS[fw] || "var(--text-primary)",
-                        border: `1px solid ${FRAMEWORK_COLORS[fw] || "#666680"}30`,
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: "8px",
-                          height: "8px",
-                          borderRadius: "50%",
-                          background: FRAMEWORK_COLORS[fw] || "#666680",
-                        }}
-                      />
-                      {fw}
-                    </span>
-                  );
-                })}
-              </div>
-
-              {/* File count */}
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                }}
-              >
-                <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Files
-                </span>
-                <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>
-                  {data.stats.files}
-                </span>
-              </div>
-
-              {/* Folder count */}
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "8px 16px",
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                }}
-              >
-                <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Folders
-                </span>
-                <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>
-                  {data.stats.folders}
-                </span>
-              </div>
-            </div>
-
-            {/* Languages Section */}
-            {data.languages.length > 0 && (
-              <div
-                style={{
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "20px",
-                }}
-              >
-                <h4
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    marginTop: 0,
-                    marginBottom: "16px",
-                  }}
-                >
-                  Languages
-                </h4>
-
-                {/* Language bar */}
-                <div
-                  style={{
-                    display: "flex",
-                    height: "10px",
-                    borderRadius: "5px",
-                    overflow: "hidden",
-                    marginBottom: "16px",
-                    gap: "2px",
-                  }}
-                >
-                  {data.languages.map((lang) => (
-                    <div
-                      key={lang.language}
-                      title={`${lang.language}: ${lang.percentage}%`}
-                      style={{
-                        width: `${lang.percentage}%`,
-                        minWidth: lang.percentage > 0 ? "4px" : "0",
-                        background: LANG_COLORS[lang.language] || "#666680",
-                        transition: "width 0.3s ease",
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* Language pills */}
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  {data.languages.map((lang) => (
-                    <div
-                      key={lang.language}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontSize: "12px",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: "10px",
-                          height: "10px",
-                          borderRadius: "50%",
-                          background: LANG_COLORS[lang.language] || "#666680",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span style={{ fontWeight: 500 }}>{lang.language}</span>
-                      <span style={{ color: "var(--text-muted)" }}>
-                        {lang.percentage}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Entrypoints Section */}
-            {data.entrypoints && data.entrypoints.length > 0 && (
-              <div
-                style={{
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "20px",
-                }}
-              >
-                <h4
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    color: "var(--text-muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.5px",
-                    marginTop: 0,
-                    marginBottom: "16px",
-                  }}
-                >
-                  Entrypoints
-                </h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {data.entrypoints.map((ep, i) => (
-                    <div
-                      key={`${ep.file}-${ep.line}-${i}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        padding: "10px 14px",
-                        background: "var(--bg-tertiary)",
-                        borderRadius: "var(--radius-sm)",
-                        border: "1px solid var(--border-subtle)",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "10px",
-                          fontWeight: 700,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                          padding: "2px 8px",
-                          borderRadius: "var(--radius-sm)",
-                          background: ep.type === "server_bootstrap"
-                            ? "rgba(108, 140, 255, 0.15)"
-                            : ep.type === "client_bootstrap"
-                              ? "rgba(160, 120, 255, 0.15)"
-                              : "rgba(72, 199, 142, 0.15)",
-                          color: ep.type === "server_bootstrap"
-                            ? "var(--accent-blue)"
-                            : ep.type === "client_bootstrap"
-                              ? "var(--accent-purple)"
-                              : "var(--accent-green)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {ep.type.replace(/_/g, " ")}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          fontFamily: "var(--font-geist-mono), monospace",
-                          color: "var(--text-primary)",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {ep.file}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          color: "var(--text-muted)",
-                          marginLeft: "auto",
-                          flexShrink: 0,
-                        }}
-                      >
-                        line {ep.line}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* API Routes Section */}
-            {data.routes && data.routes.length > 0 && (
-              <div
-                style={{
-                  background: "var(--bg-secondary)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "20px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                  <h4
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      color: "var(--text-muted)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      margin: 0,
-                    }}
-                  >
-                    API Routes
-                  </h4>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      color: "var(--text-muted)",
-                      background: "var(--bg-tertiary)",
-                      padding: "2px 8px",
-                      borderRadius: "var(--radius-sm)",
-                      fontFamily: "var(--font-geist-mono), monospace",
-                    }}
-                  >
-                    {data.routes.length} endpoint{data.routes.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {data.routes.map((route, i) => {
-                    const methodColors: Record<string, string> = {
-                      GET: "#48c78e",
-                      POST: "#6c8cff",
-                      PUT: "#f5a623",
-                      PATCH: "#f5a623",
-                      DELETE: "#ff6b7a",
-                      USE: "#888",
-                      ALL: "#a078ff",
-                      CONTROLLER: "#e0234e",
-                      RESOURCE: "#cc0000",
-                    };
-                    const color = methodColors[route.method] || "#888";
-                    return (
-                      <div
-                        key={`${route.method}-${route.path}-${route.file}-${i}`}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          padding: "8px 14px",
-                          background: "var(--bg-tertiary)",
-                          borderRadius: "var(--radius-sm)",
-                          border: "1px solid var(--border-subtle)",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            fontWeight: 800,
-                            fontFamily: "var(--font-geist-mono), monospace",
-                            letterSpacing: "0.5px",
-                            padding: "2px 8px",
-                            borderRadius: "var(--radius-sm)",
-                            background: `${color}20`,
-                            color: color,
-                            minWidth: "60px",
-                            textAlign: "center" as const,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {route.method}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontFamily: "var(--font-geist-mono), monospace",
-                            color: "var(--text-primary)",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {route.path}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--text-muted)",
-                            marginLeft: "auto",
-                            flexShrink: 0,
-                            fontFamily: "var(--font-geist-mono), monospace",
-                          }}
-                        >
-                          {route.file}:{route.line}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            color: "var(--text-muted)",
-                            background: "var(--bg-secondary)",
-                            padding: "1px 6px",
-                            borderRadius: "var(--radius-sm)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {route.framework}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Architecture Overview */}
-            {architectureSyntax && (
-              <MermaidDiagram syntax={architectureSyntax} title="Architecture" />
-            )}
-
-            {/* API Wiring Guide */}
-            {importMapSyntax && (
-              <MermaidDiagram syntax={importMapSyntax} title="API Wiring Guide" />
-            )}
-
-            {/* Analysis Stats */}
-            {data.analysis && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "12px",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                }}
-              >
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "8px 16px",
-                    background: "var(--bg-secondary)",
-                    border: "1px solid var(--border-subtle)",
-                    borderRadius: "var(--radius-md)",
-                  }}
-                >
-                  <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    AST Parsed
-                  </span>
-                  <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-blue)" }}>
-                    {data.analysis.filesAnalyzed} files
-                  </span>
-                </div>
-                {data.analysis.summary && (
-                  <>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Functions</span>
-                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-purple)" }}>{data.analysis.summary.totalFunctions}</span>
-                    </div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Classes</span>
-                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>{data.analysis.summary.totalClasses}</span>
-                    </div>
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Avg Complexity</span>
-                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>{data.analysis.summary.avgComplexity}</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* File Tree */}
-            <div>
-              <h4
-                style={{
-                  fontSize: "13px",
+                  fontSize: "12px",
                   fontWeight: 600,
                   color: "var(--text-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
-                  marginTop: 0,
-                  marginBottom: "12px",
+                  marginBottom: "8px",
+                  paddingLeft: "12px",
                 }}
               >
-                Repository Structure
-              </h4>
-              <FileTree tree={data.structure} />
+                Navigation
+              </h3>
+              {[
+                { id: "overview", label: "Overview", icon: "📊" },
+                { id: "api", label: "API & Endpoints", icon: "🔌" },
+                { id: "files", label: "Files", icon: "📂" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as "overview" | "api" | "files")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    width: "100%",
+                    padding: "10px 12px",
+                    background: activeTab === tab.id ? "var(--bg-tertiary)" : "transparent",
+                    border: "none",
+                    borderRadius: "var(--radius-md)",
+                    color: activeTab === tab.id ? "var(--text-primary)" : "var(--text-secondary)",
+                    fontSize: "14px",
+                    fontWeight: activeTab === tab.id ? 600 : 500,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeTab !== tab.id) {
+                      e.currentTarget.style.background = "var(--bg-secondary)";
+                      e.currentTarget.style.color = "var(--text-primary)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeTab !== tab.id) {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "var(--text-secondary)";
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: "16px", opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+            </aside>
+
+            {/* Main Content Area */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "32px", minWidth: 0 }}>
+              {/* Repo name header */}
+              <div style={{ paddingBottom: "16px", borderBottom: "1px solid var(--border-subtle)", marginBottom: "-8px" }}>
+                <h3
+                  style={{
+                    fontSize: "28px",
+                    fontWeight: 700,
+                    margin: 0,
+                    letterSpacing: "-0.5px",
+                  }}
+                >
+                  {repoName}
+                </h3>
+              </div>
+
+              {/* OVERVIEW TAB */}
+              {activeTab === "overview" && (
+                <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                  {/* Stats Row */}
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                    {/* Framework Badge */}
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "6px 12px",
+                        background: "var(--bg-tertiary)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-md)",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 500,
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        {(data.frameworks?.length || 0) > 1 ? "Frameworks" : "Framework"}
+                      </span>
+                      {(data.frameworks || (data.framework ? [data.framework] : ["Unknown"])).map((fw) => {
+                        const darkBadge = fw === "Next.js" || fw === "Fastify" || fw === "Flask (Python)" || fw === "Actix (Rust)" || fw === "Symfony (PHP)" || fw === "Sinatra (Ruby)" || fw === "Micronaut (Java)";
+                        return (
+                          <span
+                            key={fw}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              padding: "3px 10px",
+                              borderRadius: "var(--radius-sm)",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                              background: `${FRAMEWORK_COLORS[fw] || "#666680"}20`,
+                              color: darkBadge
+                                ? "var(--text-primary)"
+                                : FRAMEWORK_COLORS[fw] || "var(--text-primary)",
+                              border: `1px solid ${FRAMEWORK_COLORS[fw] || "#666680"}30`,
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: "8px",
+                                height: "8px",
+                                borderRadius: "50%",
+                                background: FRAMEWORK_COLORS[fw] || "#666680",
+                              }}
+                            />
+                            {fw}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {/* File count */}
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "8px 16px",
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-md)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Files
+                      </span>
+                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>
+                        {data.stats.files}
+                      </span>
+                    </div>
+
+                    {/* Folder count */}
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "8px 16px",
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-md)",
+                      }}
+                    >
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Folders
+                      </span>
+                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>
+                        {data.stats.folders}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Languages Section */}
+                  {data.languages.length > 0 && (
+                    <div
+                      style={{
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-md)",
+                        padding: "20px",
+                      }}
+                    >
+                      <h4
+                        style={{
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                          marginTop: 0,
+                          marginBottom: "16px",
+                        }}
+                      >
+                        Languages
+                      </h4>
+
+                      {/* Language bar */}
+                      <div
+                        style={{
+                          display: "flex",
+                          height: "10px",
+                          borderRadius: "5px",
+                          overflow: "hidden",
+                          marginBottom: "16px",
+                          gap: "2px",
+                        }}
+                      >
+                        {data.languages.map((lang) => (
+                          <div
+                            key={lang.language}
+                            title={`${lang.language}: ${lang.percentage}%`}
+                            style={{
+                              width: `${lang.percentage}%`,
+                              minWidth: lang.percentage > 0 ? "4px" : "0",
+                              background: LANG_COLORS[lang.language] || "#666680",
+                              transition: "width 0.3s ease",
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Language pills */}
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        {data.languages.map((lang) => (
+                          <div
+                            key={lang.language}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              fontSize: "12px",
+                              color: "var(--text-secondary)",
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: "10px",
+                                height: "10px",
+                                borderRadius: "50%",
+                                background: LANG_COLORS[lang.language] || "#666680",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span style={{ fontWeight: 500 }}>{lang.language}</span>
+                            <span style={{ color: "var(--text-muted)" }}>
+                              {lang.percentage}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+
+                  {/* Architecture Overview */}
+                  {architectureSyntax && (
+                    <MermaidDiagram syntax={architectureSyntax} title="Architecture" />
+                  )}
+
+
+                  {/* Analysis Stats */}
+                  {data.analysis && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "12px",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          padding: "8px 16px",
+                          background: "var(--bg-secondary)",
+                          border: "1px solid var(--border-subtle)",
+                          borderRadius: "var(--radius-md)",
+                        }}
+                      >
+                        <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          AST Parsed
+                        </span>
+                        <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-blue)" }}>
+                          {data.analysis.filesAnalyzed} files
+                        </span>
+                      </div>
+                      {data.analysis.summary && (
+                        <>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Functions</span>
+                            <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-purple)" }}>{data.analysis.summary.totalFunctions}</span>
+                          </div>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Classes</span>
+                            <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>{data.analysis.summary.totalClasses}</span>
+                          </div>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Avg Complexity</span>
+                            <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>{data.analysis.summary.avgComplexity}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+
+                </div>
+              )}
+
+              {/* API TAB */}
+              {activeTab === "api" && (
+                <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                  {/* Entrypoints Section */}
+                  {data.entrypoints && data.entrypoints.length > 0 && (
+                    <div
+                      style={{
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-md)",
+                        padding: "20px",
+                      }}
+                    >
+                      <h4
+                        style={{
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          color: "var(--text-muted)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                          marginTop: 0,
+                          marginBottom: "16px",
+                        }}
+                      >
+                        Entrypoints
+                      </h4>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {data.entrypoints.map((ep, i) => (
+                          <div
+                            key={`${ep.file}-${ep.line}-${i}`}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "12px",
+                              padding: "10px 14px",
+                              background: "var(--bg-tertiary)",
+                              borderRadius: "var(--radius-sm)",
+                              border: "1px solid var(--border-subtle)",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                fontWeight: 700,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                                padding: "2px 8px",
+                                borderRadius: "var(--radius-sm)",
+                                background: ep.type === "server_bootstrap"
+                                  ? "rgba(108, 140, 255, 0.15)"
+                                  : ep.type === "client_bootstrap"
+                                    ? "rgba(160, 120, 255, 0.15)"
+                                    : "rgba(72, 199, 142, 0.15)",
+                                color: ep.type === "server_bootstrap"
+                                  ? "var(--accent-blue)"
+                                  : ep.type === "client_bootstrap"
+                                    ? "var(--accent-purple)"
+                                    : "var(--accent-green)",
+                                flexShrink: 0,
+                              }}
+                            >
+                              {ep.type.replace(/_/g, " ")}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "13px",
+                                fontFamily: "var(--font-geist-mono), monospace",
+                                color: "var(--text-primary)",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {ep.file}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                color: "var(--text-muted)",
+                                marginLeft: "auto",
+                                flexShrink: 0,
+                              }}
+                            >
+                              line {ep.line}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+
+                  {/* API Routes Section */}
+                  {data.routes && data.routes.length > 0 && (
+                    <div
+                      style={{
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-md)",
+                        padding: "20px",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                        <h4
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            color: "var(--text-muted)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                            margin: 0,
+                          }}
+                        >
+                          API Routes
+                        </h4>
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            color: "var(--text-muted)",
+                            background: "var(--bg-tertiary)",
+                            padding: "2px 8px",
+                            borderRadius: "var(--radius-sm)",
+                            fontFamily: "var(--font-geist-mono), monospace",
+                          }}
+                        >
+                          {data.routes.length} endpoint{data.routes.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {data.routes.map((route, i) => {
+                          const methodColors: Record<string, string> = {
+                            GET: "#48c78e",
+                            POST: "#6c8cff",
+                            PUT: "#f5a623",
+                            PATCH: "#f5a623",
+                            DELETE: "#ff6b7a",
+                            USE: "#888",
+                            ALL: "#a078ff",
+                            CONTROLLER: "#e0234e",
+                            RESOURCE: "#cc0000",
+                          };
+                          const color = methodColors[route.method] || "#888";
+                          return (
+                            <div
+                              key={`${route.method}-${route.path}-${route.file}-${i}`}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "10px",
+                                padding: "8px 14px",
+                                background: "var(--bg-tertiary)",
+                                borderRadius: "var(--radius-sm)",
+                                border: "1px solid var(--border-subtle)",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 800,
+                                  fontFamily: "var(--font-geist-mono), monospace",
+                                  letterSpacing: "0.5px",
+                                  padding: "2px 8px",
+                                  borderRadius: "var(--radius-sm)",
+                                  background: `${color}20`,
+                                  color: color,
+                                  minWidth: "60px",
+                                  textAlign: "center" as const,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {route.method}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: "13px",
+                                  fontFamily: "var(--font-geist-mono), monospace",
+                                  color: "var(--text-primary)",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {route.path}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "var(--text-muted)",
+                                  marginLeft: "auto",
+                                  flexShrink: 0,
+                                  fontFamily: "var(--font-geist-mono), monospace",
+                                }}
+                              >
+                                {route.file}:{route.line}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  color: "var(--text-muted)",
+                                  background: "var(--bg-secondary)",
+                                  padding: "1px 6px",
+                                  borderRadius: "var(--radius-sm)",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {route.framework}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+
+                  {/* API Wiring Guide */}
+                  {importMapSyntax && (
+                    <MermaidDiagram syntax={importMapSyntax} title="API Wiring Guide" />
+                  )}
+
+
+                </div>
+              )}
+
+              {/* FILES TAB */}
+              {activeTab === "files" && (
+                <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                  {/* File Tree */}
+                  <div>
+                    <h4
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: "var(--text-muted)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        marginTop: 0,
+                        marginBottom: "12px",
+                      }}
+                    >
+                      Repository Structure
+                    </h4>
+                    <FileTree tree={data.structure} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
