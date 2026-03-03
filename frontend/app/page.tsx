@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useRef, useMemo } from "react";
 import FileTree from "./components/FileTree";
 import MermaidDiagram from "./components/MermaidDiagram";
-import { buildArchitectureDiagram } from "./utils/buildMermaidDiagram";
+import { buildArchitectureDiagram, buildImportExportMap } from "./utils/buildMermaidDiagram";
 
 interface LanguageInfo {
   language: string;
@@ -49,7 +49,17 @@ interface AnalysisResult {
   entrypoints?: EntrypointInfo[];
   routes?: RouteInfo[];
   dependencies?: DependencyInfo[];
-  analysis?: { filesAnalyzed: number };
+  symbols?: any[];
+  complexity?: any[];
+  analysis?: {
+    filesAnalyzed: number;
+    summary?: {
+      totalFunctions: number;
+      totalClasses: number;
+      totalExports: number;
+      avgComplexity: number;
+    };
+  };
   cached?: boolean;
 }
 
@@ -159,15 +169,19 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
+  const [uploadName, setUploadName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
   const analyze = async () => {
     if (!url.trim()) return;
     setLoading(true);
     setError(null);
     setData(null);
+    setUploadName(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
       const res = await fetch(`${apiUrl}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,10 +202,64 @@ export default function Home() {
     }
   };
 
+  const analyzeZip = async (file: File) => {
+    setLoading(true);
+    setError(null);
+    setData(null);
+    setUploadName(file.name.replace(/\.zip$/i, ""));
+
+    try {
+      const formData = new FormData();
+      formData.append("repo", file);
+
+      const res = await fetch(`${apiUrl}/api/analyze/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Upload analysis failed");
+      }
+
+      const result = await res.json();
+      setData(result);
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const exportDocs = async () => {
+    if (!data) return;
+    try {
+      const res = await fetch(`${apiUrl}/api/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) throw new Error("Export failed");
+
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `${repoName}-codeatlas.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      setError(err.message || "Failed to export documentation");
+    }
+  };
+
   const clearCache = async () => {
     setClearingCache(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
       await fetch(`${apiUrl}/api/cache`, { method: "DELETE" });
       // Re-analyze to get a fresh (non-cached) result
       await analyze();
@@ -202,7 +270,7 @@ export default function Home() {
     }
   };
 
-  const repoName = url.split("/").filter(Boolean).slice(-1)[0] || "Repository";
+  const repoName = uploadName || url.split("/").filter(Boolean).slice(-1)[0] || "Repository";
 
   const architectureSyntax = useMemo(() => {
     if (!data) return "";
@@ -210,8 +278,12 @@ export default function Home() {
       frameworks: data.frameworks || (data.framework ? [data.framework] : []),
       entrypoints: data.entrypoints,
       routes: data.routes,
-      dependencies: data.dependencies,
     });
+  }, [data]);
+
+  const importMapSyntax = useMemo(() => {
+    if (!data || !data.dependencies) return "";
+    return buildImportExportMap({ dependencies: data.dependencies });
   }, [data]);
 
   return (
@@ -229,47 +301,114 @@ export default function Home() {
           padding: "16px 32px",
           display: "flex",
           alignItems: "center",
-          gap: "12px",
+          justifyContent: "space-between",
         }}
       >
-        <div
-          style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "var(--radius-sm)",
-            background: "linear-gradient(135deg, var(--accent-blue), var(--accent-purple))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "16px",
-            fontWeight: 700,
-            color: "#fff",
-          }}
-        >
-          C
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div
+            style={{
+              width: "32px",
+              height: "32px",
+              borderRadius: "var(--radius-sm)",
+              background: "linear-gradient(135deg, var(--accent-blue), var(--accent-purple))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "16px",
+              fontWeight: 700,
+              color: "#fff",
+            }}
+          >
+            C
+          </div>
+          <h1
+            style={{
+              fontSize: "18px",
+              fontWeight: 600,
+              margin: 0,
+              letterSpacing: "-0.3px",
+            }}
+          >
+            CodeAtlas
+          </h1>
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--text-muted)",
+              background: "var(--bg-tertiary)",
+              padding: "2px 8px",
+              borderRadius: "var(--radius-sm)",
+              fontFamily: "var(--font-geist-mono), monospace",
+            }}
+          >
+            v0.1
+          </span>
         </div>
-        <h1
-          style={{
-            fontSize: "18px",
-            fontWeight: 600,
-            margin: 0,
-            letterSpacing: "-0.3px",
-          }}
-        >
-          CodeAtlas
-        </h1>
-        <span
-          style={{
-            fontSize: "11px",
-            color: "var(--text-muted)",
-            background: "var(--bg-tertiary)",
-            padding: "2px 8px",
-            borderRadius: "var(--radius-sm)",
-            fontFamily: "var(--font-geist-mono), monospace",
-          }}
-        >
-          v0.1
-        </span>
+
+        {/* Header Actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Export Docs Button */}
+          {data && (
+            <button
+              onClick={exportDocs}
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "var(--accent-green)",
+                background: "rgba(72, 199, 142, 0.1)",
+                padding: "6px 14px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid rgba(72, 199, 142, 0.25)",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              Export Docs
+            </button>
+          )}
+
+          {/* Clear Cache Button */}
+          {data?.cached && (
+            <button
+              onClick={clearCache}
+              disabled={clearingCache}
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: clearingCache ? "var(--text-muted)" : "var(--accent-amber)",
+                background: clearingCache
+                  ? "var(--bg-tertiary)"
+                  : "rgba(245, 166, 35, 0.1)",
+                padding: "6px 14px",
+                borderRadius: "var(--radius-sm)",
+                border: `1px solid ${clearingCache ? "var(--border-subtle)" : "rgba(245, 166, 35, 0.25)"}`,
+                cursor: clearingCache ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              {clearingCache && (
+                <span
+                  className="animate-spin"
+                  style={{
+                    display: "inline-block",
+                    width: "12px",
+                    height: "12px",
+                    border: "2px solid var(--text-muted)",
+                    borderTopColor: "var(--accent-amber)",
+                    borderRadius: "50%",
+                  }}
+                />
+              )}
+              {clearingCache ? "Clearing Cache..." : "Clear Cache & Reanalyze"}
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -302,7 +441,7 @@ export default function Home() {
                 lineHeight: 1.6,
               }}
             >
-              Paste a GitHub repository URL to analyze its structure, detect the framework and languages, and explore the file tree.
+              Paste a GitHub repository URL or upload a ZIP file to analyze its structure, detect frameworks and languages, and explore the file tree.
             </p>
           </div>
         )}
@@ -379,6 +518,42 @@ export default function Home() {
               />
             )}
             {loading ? "Analyzing..." : "Analyze"}
+          </button>
+
+          {/* ZIP Upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".zip"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) analyzeZip(file);
+            }}
+            disabled={loading}
+            style={{ display: "none" }}
+            id="zip-upload"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+            style={{
+              padding: "12px 20px",
+              background: "var(--bg-tertiary)",
+              border: "1px dashed var(--border-subtle)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--text-secondary)",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.5 : 1,
+              transition: "all 0.2s ease",
+              whiteSpace: "nowrap",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            Upload .zip
           </button>
         </div>
 
@@ -827,7 +1002,12 @@ export default function Home() {
 
             {/* Architecture Overview */}
             {architectureSyntax && (
-              <MermaidDiagram syntax={architectureSyntax} title="Architecture Overview" />
+              <MermaidDiagram syntax={architectureSyntax} title="Architecture" />
+            )}
+
+            {/* API Wiring Guide */}
+            {importMapSyntax && (
+              <MermaidDiagram syntax={importMapSyntax} title="API Wiring Guide" />
             )}
 
             {/* Analysis Stats */}
@@ -858,42 +1038,21 @@ export default function Home() {
                     {data.analysis.filesAnalyzed} files
                   </span>
                 </div>
-                {data.cached && (
-                  <button
-                    onClick={clearCache}
-                    disabled={clearingCache}
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      color: clearingCache ? "var(--text-muted)" : "var(--accent-amber)",
-                      background: clearingCache
-                        ? "var(--bg-tertiary)"
-                        : "rgba(245, 166, 35, 0.1)",
-                      padding: "5px 12px",
-                      borderRadius: "var(--radius-sm)",
-                      border: `1px solid ${clearingCache ? "var(--border-subtle)" : "rgba(245, 166, 35, 0.25)"}`,
-                      cursor: clearingCache ? "not-allowed" : "pointer",
-                      transition: "all 0.2s ease",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    {clearingCache && (
-                      <span
-                        className="animate-spin"
-                        style={{
-                          display: "inline-block",
-                          width: "10px",
-                          height: "10px",
-                          border: "1.5px solid var(--text-muted)",
-                          borderTopColor: "var(--accent-amber)",
-                          borderRadius: "50%",
-                        }}
-                      />
-                    )}
-                    {clearingCache ? "Clearing..." : "Cached -- Clear cache"}
-                  </button>
+                {data.analysis.summary && (
+                  <>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Functions</span>
+                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-purple)" }}>{data.analysis.summary.totalFunctions}</span>
+                    </div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Classes</span>
+                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>{data.analysis.summary.totalClasses}</span>
+                    </div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
+                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Avg Complexity</span>
+                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>{data.analysis.summary.avgComplexity}</span>
+                    </div>
+                  </>
                 )}
               </div>
             )}

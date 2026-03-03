@@ -13,34 +13,7 @@
  *   Ruby:  if __FILE__ == $0 / $PROGRAM_NAME
  */
 
-/**
- * Recursively collect all descendant nodes matching a predicate.
- */
-function findNodes(node, predicate) {
-  const results = [];
-  const cursor = node.walk();
-  let reachedRoot = false;
-
-  while (true) {
-    if (!reachedRoot && predicate(cursor.currentNode)) {
-      results.push(cursor.currentNode);
-    }
-    reachedRoot = false;
-
-    if (cursor.gotoFirstChild()) continue;
-    if (cursor.gotoNextSibling()) continue;
-
-    while (true) {
-      if (!cursor.gotoParent()) return results;
-      reachedRoot = true;
-      if (cursor.gotoNextSibling()) {
-        reachedRoot = false;
-        break;
-      }
-    }
-  }
-}
-
+const { findNodes } = require("../treeUtils");
 /**
  * Check if a call expression matches any of the given dot-patterns.
  * e.g., "app.listen", "http.createServer"

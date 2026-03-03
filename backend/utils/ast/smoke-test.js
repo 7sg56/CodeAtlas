@@ -7,6 +7,8 @@ const { parseFile, isSupported } = require("./engine");
 const { extractEntrypoints } = require("./extractors/entrypoints");
 const { extractRoutes } = require("./extractors/routes");
 const { extractFrameworks } = require("./extractors/frameworks");
+const { extractSymbols } = require("./extractors/symbols");
+const { extractComplexity } = require("./extractors/complexity");
 const fs = require("fs-extra");
 const path = require("path");
 const os = require("os");
@@ -65,6 +67,13 @@ app.listen(3000, () => {
   const jsFrameworks = extractFrameworks(jsResult);
   assert("Express detected via import", jsFrameworks.has("Express"));
 
+  const jsSymbols = extractSymbols({ ...jsResult, relativePath: "server.js" });
+  assert("JS symbols extracted", jsSymbols !== undefined);
+  assert("JS found arrow functions", jsSymbols.functions.length >= 2);
+
+  const jsComplexity = extractComplexity({ ...jsResult, relativePath: "server.js" });
+  assert("JS complexity extracted", jsComplexity.functions.length >= 2);
+
   // -----------------------------------------------------------------------
   // Test 2: TypeScript NestJS controller
   // -----------------------------------------------------------------------
@@ -102,6 +111,10 @@ export class UsersController {
 
   const tsFrameworks = extractFrameworks(tsResult);
   assert("NestJS detected via import", tsFrameworks.has("NestJS"));
+
+  const tsSymbols = extractSymbols({ ...tsResult, relativePath: "users.controller.ts" });
+  assert("TS found class UsersController", tsSymbols.classes && tsSymbols.classes.some(c => c.name === "UsersController"));
+  assert("TS class has 3 methods", tsSymbols.classes.length > 0 && tsSymbols.classes[0].methodCount >= 3);
 
   // -----------------------------------------------------------------------
   // Test 3: Python FastAPI

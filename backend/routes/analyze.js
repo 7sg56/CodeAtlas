@@ -8,11 +8,21 @@ const { getCached, setCached, cleanupRepo, REPO_DIR } = require("../utils/repoCa
 
 const router = express.Router();
 
+// Matches GitHub, GitLab, Bitbucket URLs (with optional .git suffix)
+const VALID_GIT_URL = /^https?:\/\/(github\.com|gitlab\.com|bitbucket\.org)\/[\w.\-]+\/[\w.\-]+(\.git)?\/?$/i;
+
 router.post("/", async (req, res) => {
   const { githubUrl } = req.body;
 
   if (!githubUrl) {
-    return res.status(400).json({ error: "GitHub URL required" });
+    return res.status(400).json({ error: "Repository URL is required.", code: "MISSING_URL" });
+  }
+
+  if (!VALID_GIT_URL.test(githubUrl.trim())) {
+    return res.status(400).json({
+      error: "Invalid repository URL. Provide a valid GitHub, GitLab, or Bitbucket URL (e.g., https://github.com/owner/repo).",
+      code: "INVALID_URL",
+    });
   }
 
   // Return cached result immediately if available
@@ -51,8 +61,11 @@ router.post("/", async (req, res) => {
       entrypoints: astResult.entrypoints,
       routes: astResult.routes,
       dependencies: astResult.dependencies,
+      symbols: astResult.symbols,
+      complexity: astResult.complexity,
       analysis: {
         filesAnalyzed: astResult.filesAnalyzed,
+        summary: astResult.summary,
       },
     };
 

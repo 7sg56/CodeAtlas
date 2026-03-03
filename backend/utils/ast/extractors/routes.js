@@ -12,34 +12,7 @@
  *   Ruby on Rails:     get "/path", to: "controller#action"
  */
 
-/**
- * Recursively collect all descendant nodes matching a predicate.
- */
-function findNodes(node, predicate) {
-  const results = [];
-  const cursor = node.walk();
-  let reachedRoot = false;
-
-  while (true) {
-    if (!reachedRoot && predicate(cursor.currentNode)) {
-      results.push(cursor.currentNode);
-    }
-    reachedRoot = false;
-
-    if (cursor.gotoFirstChild()) continue;
-    if (cursor.gotoNextSibling()) continue;
-
-    while (true) {
-      if (!cursor.gotoParent()) return results;
-      reachedRoot = true;
-      if (cursor.gotoNextSibling()) {
-        reachedRoot = false;
-        break;
-      }
-    }
-  }
-}
-
+const { findNodes } = require("../treeUtils");
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
