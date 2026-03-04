@@ -86,7 +86,12 @@ async function* walkAndParse(dir, rootDir = dir) {
   const SKIP_DIRS = new Set([
     "node_modules", ".git", "dist", "build", ".next",
     "__pycache__", ".venv", "venv", "vendor", "target",
-    ".idea", ".vscode",
+    ".idea", ".vscode", "coverage", "docs", "tests",
+    "migrations", "scripts", "public", "assets", "styles"
+  ]);
+
+  const SKIP_EXTENSIONS = new Set([
+    ".md", ".css", ".scss", ".png", ".jpg", ".jpeg", ".svg", ".gif", ".ico"
   ]);
 
   let entries;
@@ -98,17 +103,31 @@ async function* walkAndParse(dir, rootDir = dir) {
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
+    const relPath = path.relative(rootDir, fullPath);
 
     if (entry.isDirectory()) {
       if (!SKIP_DIRS.has(entry.name)) {
         yield* walkAndParse(fullPath, rootDir);
       }
     } else if (entry.isFile()) {
+      const name = entry.name.toLowerCase();
+      const ext = path.extname(name);
+
+      // Skip test files, spec files, config files, and low-priority extensions
+      if (
+        name.includes(".test.") ||
+        name.includes(".spec.") ||
+        name.includes(".config.") ||
+        SKIP_EXTENSIONS.has(ext)
+      ) {
+        continue;
+      }
+
       const result = await parseFile(fullPath);
       if (result) {
         yield {
           filePath: fullPath,
-          relativePath: path.relative(rootDir, fullPath),
+          relativePath: relPath.replace(/\\/g, "/"),
           ...result,
         };
       }

@@ -1,11 +1,3 @@
-/**
- * AST Analyzer Orchestrator
- *
- * Ties together the AST engine and all extractors. Walks a repository,
- * parses every supported file, runs all extractors, and returns a
- * consolidated analysis result.
- */
-
 const { walkAndParse } = require("./engine");
 const { extractEntrypoints } = require("./extractors/entrypoints");
 const { extractRoutes } = require("./extractors/routes");
@@ -13,31 +5,27 @@ const { extractFrameworks } = require("./extractors/frameworks");
 const { extractImports } = require("./extractors/imports");
 const { extractSymbols } = require("./extractors/symbols");
 const { extractComplexity } = require("./extractors/complexity");
+const { classifyFile } = require("./fileClassifier");
+const { extractFileMetadata } = require("./extractors/fileMetadata");
+const { buildTree, countNodes, detectLanguages } = require("../scanner");
+const path = require("path");
 
 /**
- * Run full AST analysis on a repository.
- *
- * @param {string} repoPath - Absolute path to the cloned repository
- * @returns {Promise<{
- *   entrypoints: Array<{ file: string, type: string, line: number, snippet: string }>,
- *   routes: Array<{ file: string, method: string, path: string, line: number, framework: string }>,
- *   astFrameworks: string[],
- *   filesAnalyzed: number,
- *   parseErrors: number,
- * }>}
+ * Run optimized file-centric AST analysis for LLM consumption.
  */
-async function analyzeRepo(repoPath) {
-  const entrypoints = [];
-  const routes = [];
-  const dependencies = [];
-  const symbols = [];
-  const complexity = [];
-  const frameworkSet = new Set();
-  let filesAnalyzed = 0;
+async function analyzeRepo(repoPath, originalName = null) {
+  const repoName = originalName || path.basename(repoPath);
+  const rawFiles = [];
+  const globalFrameworks = new Set();
 
+  // Get tree and stats for UI
+  const structure = await buildTree(repoPath);
+  const stats = countNodes(structure);
+  const languages = detectLanguages(structure);
+
+  // 1. Collect and Classify Files
   for await (const parsed of walkAndParse(repoPath)) {
-    filesAnalyzed++;
-
+    const type = classifyFile(parsed.relativePath);
     const fileData = {
       tree: parsed.tree,
       source: parsed.source,
@@ -45,100 +33,140 @@ async function analyzeRepo(repoPath) {
       relativePath: parsed.relativePath,
     };
 
-    // Run all extractors on this file
-    const fileEntrypoints = extractEntrypoints(fileData);
-    entrypoints.push(...fileEntrypoints);
+    const isDeep = ['router', 'controller', 'service', 'entrypoint'].includes(type);
+    let analysis = {};
 
-    const fileRoutes = extractRoutes(fileData);
-    routes.push(...fileRoutes);
-
-    const fileImports = extractImports(fileData);
-    dependencies.push(...fileImports);
-
-    const fileFrameworks = extractFrameworks(fileData);
-    for (const fw of fileFrameworks) {
-      frameworkSet.add(fw);
+    if (isDeep) {
+      analysis = {
+        routes: extractRoutes(fileData),
+        symbols: extractSymbols(fileData),
+        complexity: extractComplexity(fileData),
+        imports: extractImports(fileData).map(i => i.to)
+      };
+      extractFrameworks(fileData).forEach(fw => globalFrameworks.add(fw));
+    } else {
+      const meta = extractFileMetadata(fileData);
+      analysis = {
+        imports: meta.imports,
+        exports: meta.exports
+      };
     }
 
-    const fileSymbols = extractSymbols(fileData);
-    if (fileSymbols) {
-      symbols.push({ file: parsed.relativePath, ...fileSymbols });
-    }
+    rawFiles.push({
+      file: parsed.relativePath,
+      type,
+      isDeep,
+      analysis,
+      source: parsed.source,
+      language: parsed.language,
+      entrypoints: isDeep ? extractEntrypoints(fileData) : []
+    });
 
-    const fileComplexity = extractComplexity(fileData);
-    if (fileComplexity && fileComplexity.functions.length > 0) {
-      complexity.push(fileComplexity);
-    }
+    if (rawFiles.length >= 500) break;
   }
 
-  // Deduplicate routes by method+path+file
-  const uniqueRoutes = deduplicateRoutes(routes);
+  // 2. Prioritize and Limit to 70 files
+  const priority = { entrypoint: 0, router: 1, controller: 2, service: 3, component: 4, utility: 5, unknown: 6 };
+  const sortedFiles = rawFiles.sort((a, b) => priority[a.type] - priority[b.type]);
+  const finalFiles = sortedFiles.slice(0, 70);
 
-  // Deduplicate dependency edges (same from + to)
-  const uniqueDeps = deduplicateDeps(dependencies);
+  // 3. Create File Index Maps
+  const files = {};
+  const tipo = {};
+  const pathToId = {};
+  const extensionlessPathToId = {};
 
-  let totalFunctions = 0;
-  let totalClasses = 0;
-  let totalExports = 0;
-  let sumComplexity = 0;
-  let compFuncCount = 0;
+  finalFiles.forEach((f, i) => {
+    const id = i + 1;
+    files[id] = f.file;
+    tipo[id] = f.type;
+    pathToId[f.file] = id;
+    extensionlessPathToId[f.file.replace(/\.\w+$/, "")] = id;
+  });
 
-  for (const s of symbols) {
-    totalFunctions += s.functions.length;
-    totalClasses += s.classes.length;
-    totalExports += s.exports.length;
-  }
+  // 4. Dependency Hub Detection (Top 8) & API Extraction
+  const deps = [];
+  const inDegree = {};
+  const outDegree = {};
+  const api = [];
+  const det = {};
 
-  for (const c of complexity) {
-    for (const f of c.functions) {
-      sumComplexity += f.complexity;
-      compFuncCount++;
+  finalFiles.forEach(f => {
+    const fId = pathToId[f.file];
+
+    // Dependencies
+    f.analysis.imports?.forEach(imp => {
+      const tId = pathToId[imp] || extensionlessPathToId[imp];
+      if (tId && tId !== fId) {
+        deps.push([fId, tId]);
+        inDegree[tId] = (inDegree[tId] || 0) + 1;
+        outDegree[fId] = (outDegree[fId] || 0) + 1;
+      }
+    });
+
+    // Routes
+    f.analysis.routes?.forEach(r => {
+      api.push([r.method, r.path, r.handler || fId]);
+    });
+
+    // File details for report
+    if (f.isDeep) {
+      const compList = f.analysis.complexity?.functions || [];
+      const avgCx = compList.reduce((acc, c) => acc + (c.complexity || 0), 0) / (compList.length || 1);
+
+      det[fId] = {
+        fn: f.analysis.symbols?.functions?.map(fn => fn.name)?.slice(0, 15) || [],
+        cx: isNaN(avgCx) ? 0 : Number(avgCx.toFixed(1)),
+        rt: f.analysis.routes?.map(r => [r.method, r.path]) || []
+      };
     }
-  }
+  });
+  console.log(`[analyzer] Found ${deps.length} deps in ${finalFiles.length} files.`);
 
-  const avgComplexity = compFuncCount > 0 ? Number((sumComplexity / compFuncCount).toFixed(1)) : 0;
+  const hubs = Object.entries(inDegree)
+    .map(([id, deg]) => ({ id: Number(id), score: deg + (outDegree[id] || 0) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+    .map(h => h.id);
 
-  return {
-    entrypoints,
-    routes: uniqueRoutes,
-    dependencies: uniqueDeps,
-    astFrameworks: Array.from(frameworkSet).sort(),
-    filesAnalyzed,
-    symbols,
-    complexity,
-    summary: {
-      totalFunctions,
-      totalClasses,
-      totalExports,
-      avgComplexity
-    }
+  // 5. Architecture Summary
+  const routers = finalFiles.filter(f => f.type === 'router').length;
+  const controllers = finalFiles.filter(f => f.type === 'controller').length;
+  const services = finalFiles.filter(f => f.type === 'service').length;
+
+  // 6. Final Payload
+  const payload = {
+    repo: repoName,
+    fw: Array.from(globalFrameworks).sort(),
+    lang: languages.map(l => {
+      const low = l.language.toLowerCase();
+      if (low.includes('javascript')) return 'js';
+      if (low.includes('typescript')) return 'ts';
+      return low.substring(0, 4);
+    }),
+    entry: finalFiles.filter(f => f.type === 'entrypoint').map(f => pathToId[f.file]),
+    files,
+    type: tipo,
+    api,
+    deps,
+    hubs,
+    arch: {
+      pattern: globalFrameworks.has("Next.js") ? "Next.js Fullstack" : (routers > 0 && controllers > 0 ? "MVC-REST" : "Service-Oriented"),
+      routers,
+      controllers,
+      services,
+      modules: Math.min(10, finalFiles.filter(f => f.file.includes('/')).length / 3 | 0)
+    },
+    det,
+    st: structure,
+    ss: stats,
+    ext: { languages }
   };
-}
 
-/**
- * Remove duplicate routes (same method + path + file).
- */
-function deduplicateRoutes(routes) {
-  const seen = new Set();
-  return routes.filter((r) => {
-    const key = `${r.method}:${r.path}:${r.file}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
+  console.log("FINAL GROQ PAYLOAD");
+  console.log(JSON.stringify(payload, null, 2));
 
-/**
- * Remove duplicate dependency edges (same from + to).
- */
-function deduplicateDeps(deps) {
-  const seen = new Set();
-  return deps.filter((d) => {
-    const key = `${d.from}:${d.to}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  return payload;
 }
 
 module.exports = { analyzeRepo };

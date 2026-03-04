@@ -40,25 +40,32 @@ interface DependencyInfo {
 }
 
 interface AnalysisResult {
-  repoId: string;
-  frameworks?: string[];
-  framework?: string; // backward compat with old API
-  languages: LanguageInfo[];
-  stats: { files: number; folders: number };
-  structure: FileNode[];
-  entrypoints?: EntrypointInfo[];
-  routes?: RouteInfo[];
-  dependencies?: DependencyInfo[];
-  symbols?: unknown[];
-  complexity?: unknown[];
-  analysis?: {
-    filesAnalyzed: number;
-    summary?: {
-      totalFunctions: number;
-      totalClasses: number;
-      totalExports: number;
-      avgComplexity: number;
-    };
+  repo: string;
+  id?: string;
+  fw: string[];
+  lang: string[];
+  entry: number[];
+  files: Record<number, string>;
+  type: Record<number, string>;
+  api: [string, string, string | number][];
+  deps: [number, number][];
+  hubs: number[];
+  arch: {
+    pattern: string;
+    routers: number;
+    controllers: number;
+    services: number;
+    modules: number;
+  };
+  det?: Record<number, {
+    fn: string[];
+    cx: number;
+    rt: [string, string][];
+  }>;
+  st: FileNode[];
+  ss: { files: number; folders: number };
+  ext: {
+    languages: LanguageInfo[];
   };
   cached?: boolean;
 }
@@ -195,7 +202,7 @@ export default function Home() {
       }
 
       const result = await res.json();
-      setData(result);
+      setData({ ...result, cached: !!result.cached });
     } catch (err: unknown) {
       const error = err as Error;
       setError(error.message || "Something went wrong");
@@ -225,7 +232,11 @@ export default function Home() {
       }
 
       const result = await res.json();
-      setData(result);
+      if (result.repository) {
+        setData({ ...result, cached: result.cached });
+      } else {
+        setData({ ...result.analysis, cached: result.cached });
+      }
     } catch (err: unknown) {
       const error = err as Error;
       setError(error.message || "Something went wrong");
@@ -275,20 +286,33 @@ export default function Home() {
     }
   };
 
-  const repoName = uploadName || url.split("/").filter(Boolean).slice(-1)[0] || "Repository";
+  const repoName = uploadName || data?.repo || url.split("/").filter(Boolean).slice(-1)[0] || "Repository";
 
   const architectureSyntax = useMemo(() => {
     if (!data) return "";
+    const flatRoutes = data.api.map(r => ({
+      method: r[0],
+      path: r[1],
+      handler: typeof r[2] === 'number' ? (data.files[r[2]] || "Unknown") : r[2],
+      framework: data.fw[0] || "Unknown",
+      file: typeof r[2] === 'number' ? (data.files[r[2]] || "Unknown") : "Internal",
+    }));
+
     return buildArchitectureDiagram({
-      frameworks: data.frameworks || (data.framework ? [data.framework] : []),
-      entrypoints: data.entrypoints,
-      routes: data.routes,
+      frameworks: data.fw,
+      entrypoints: data.entry.map(id => ({ file: data.files[id] || "Unknown", type: "Entry", snippet: "", line: 0 })),
+      routes: flatRoutes as any[],
     });
   }, [data]);
 
   const importMapSyntax = useMemo(() => {
-    if (!data || !data.dependencies) return "";
-    return buildImportExportMap({ dependencies: data.dependencies });
+    if (!data) return "";
+    const allDeps = data.deps.map(([fromId, toId]) => ({
+      from: data.files[fromId] || "Unknown",
+      to: data.files[toId] || "Unknown"
+    }));
+
+    return buildImportExportMap({ dependencies: allDeps as any[] });
   }, [data]);
 
   return (
@@ -463,8 +487,8 @@ export default function Home() {
             type="text"
             placeholder="https://github.com/owner/repo"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !loading && analyze()}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && !loading && analyze()}
             disabled={loading}
             style={{
               flex: 1,
@@ -478,11 +502,11 @@ export default function Home() {
               outline: "none",
               transition: "border-color 0.2s ease, box-shadow 0.2s ease",
             }}
-            onFocus={(e) => {
+            onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
               e.currentTarget.style.borderColor = "var(--accent-blue)";
               e.currentTarget.style.boxShadow = "0 0 0 3px rgba(108, 140, 255, 0.1)";
             }}
-            onBlur={(e) => {
+            onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
               e.currentTarget.style.borderColor = "var(--border-subtle)";
               e.currentTarget.style.boxShadow = "none";
             }}
@@ -530,7 +554,7 @@ export default function Home() {
             ref={fileInputRef}
             type="file"
             accept=".zip"
-            onChange={(e) => {
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               const file = e.target.files?.[0];
               if (file) analyzeZip(file);
             }}
@@ -652,13 +676,13 @@ export default function Home() {
                     textAlign: "left",
                     transition: "all 0.2s ease",
                   }}
-                  onMouseEnter={(e) => {
+                  onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
                     if (activeTab !== tab.id) {
                       e.currentTarget.style.background = "var(--bg-secondary)";
                       e.currentTarget.style.color = "var(--text-primary)";
                     }
                   }}
-                  onMouseLeave={(e) => {
+                  onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
                     if (activeTab !== tab.id) {
                       e.currentTarget.style.background = "transparent";
                       e.currentTarget.style.color = "var(--text-secondary)";
@@ -714,9 +738,9 @@ export default function Home() {
                           letterSpacing: "0.5px",
                         }}
                       >
-                        {(data.frameworks?.length || 0) > 1 ? "Frameworks" : "Framework"}
+                        {(data.fw?.length || 0) > 1 ? "Frameworks" : "Framework"}
                       </span>
-                      {(data.frameworks || (data.framework ? [data.framework] : ["Unknown"])).map((fw) => {
+                      {(data.fw || ["Unknown"]).map((fw: string) => {
                         const darkBadge = fw === "Next.js" || fw === "Fastify" || fw === "Flask (Python)" || fw === "Actix (Rust)" || fw === "Symfony (PHP)" || fw === "Sinatra (Ruby)" || fw === "Micronaut (Java)";
                         return (
                           <span
@@ -766,7 +790,7 @@ export default function Home() {
                         Files
                       </span>
                       <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>
-                        {data.stats.files}
+                        {data.ss.files}
                       </span>
                     </div>
 
@@ -786,65 +810,43 @@ export default function Home() {
                         Folders
                       </span>
                       <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>
-                        {data.stats.folders}
+                        {data.ss.folders}
                       </span>
                     </div>
                   </div>
 
                   {/* Languages Section */}
-                  {data.languages.length > 0 && (
+                  {data.ext.languages.length > 0 && (
                     <div
                       style={{
                         background: "var(--bg-secondary)",
                         border: "1px solid var(--border-subtle)",
                         borderRadius: "var(--radius-md)",
-                        padding: "20px",
+                        padding: "24px",
                       }}
                     >
-                      <h4
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: "var(--text-muted)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                          marginTop: 0,
-                          marginBottom: "16px",
-                        }}
-                      >
-                        Languages
+                      <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span>🌐</span> Language Distribution
                       </h4>
 
-                      {/* Language bar */}
-                      <div
-                        style={{
-                          display: "flex",
-                          height: "10px",
-                          borderRadius: "5px",
-                          overflow: "hidden",
-                          marginBottom: "16px",
-                          gap: "2px",
-                        }}
-                      >
-                        {data.languages.map((lang) => (
+                      <div style={{ display: "flex", height: "8px", borderRadius: "4px", overflow: "hidden", marginBottom: "20px" }}>
+                        {data.ext.languages.map((lang: LanguageInfo) => (
                           <div
                             key={lang.language}
-                            title={`${lang.language}: ${lang.percentage}%`}
                             style={{
                               width: `${lang.percentage}%`,
-                              minWidth: lang.percentage > 0 ? "4px" : "0",
-                              background: LANG_COLORS[lang.language] || "#666680",
-                              transition: "width 0.3s ease",
+                              background: LANG_COLORS[lang.language] || "#666",
+                              transition: "width 0.5s ease"
                             }}
                           />
                         ))}
                       </div>
 
-                      {/* Language pills */}
-                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                        {data.languages.map((lang) => (
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "12px" }}>
+                        {data.ext.languages.map((lang: LanguageInfo) => (
                           <div
                             key={lang.language}
+                            title={`${lang.language}: ${lang.percentage}%`}
                             style={{
                               display: "inline-flex",
                               alignItems: "center",
@@ -879,50 +881,52 @@ export default function Home() {
                   )}
 
 
-                  {/* Analysis Stats */}
-                  {data.analysis && (
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "12px",
-                        flexWrap: "wrap",
-                        alignItems: "center",
-                      }}
-                    >
+                  {/* Summary Stats Summary Section */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                      gap: "16px",
+                    }}
+                  >
+                    {[
+                      { label: "Files Analyzed", value: Object.keys(data.files).length, color: "var(--accent-blue)" },
+                      { label: "Routers", value: data.arch.routers, color: "var(--accent-purple)" },
+                      { label: "Controllers", value: data.arch.controllers, color: "var(--accent-green)" },
+                      { label: "Services", value: data.arch.services, color: "var(--accent-amber)" },
+                    ].map((stat) => (
                       <div
+                        key={stat.label}
                         style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          padding: "8px 16px",
+                          padding: "20px",
                           background: "var(--bg-secondary)",
                           border: "1px solid var(--border-subtle)",
                           borderRadius: "var(--radius-md)",
                         }}
                       >
-                        <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          AST Parsed
-                        </span>
-                        <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-blue)" }}>
-                          {data.analysis.filesAnalyzed} files
-                        </span>
+                        <div style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
+                          {stat.label}
+                        </div>
+                        <div style={{ fontSize: "24px", fontWeight: 700, color: stat.color }}>
+                          {stat.value}
+                        </div>
                       </div>
-                      {data.analysis.summary && (
-                        <>
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-                            <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Functions</span>
-                            <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-purple)" }}>{data.analysis.summary.totalFunctions}</span>
-                          </div>
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-                            <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Classes</span>
-                            <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>{data.analysis.summary.totalClasses}</span>
-                          </div>
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }}>
-                            <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Avg Complexity</span>
-                            <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>{data.analysis.summary.avgComplexity}</span>
-                          </div>
-                        </>
-                      )}
+                    ))}
+                  </div>
+
+                  {/* Anchors Section */}
+                  {data.hubs.length > 0 && (
+                    <div style={{ marginTop: "32px", background: "var(--bg-secondary)", padding: "24px", borderRadius: "12px", border: "1px solid var(--border-subtle)" }}>
+                      <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "16px", color: "var(--text-muted)", textTransform: "uppercase" }}>
+                        ⚓ Architectural Anchors
+                      </h4>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                        {data.hubs.map(id => (
+                          <span key={id} style={{ padding: "6px 14px", background: "var(--bg-tertiary)", border: "1px solid var(--border-subtle)", borderRadius: "20px", fontSize: "13px", fontWeight: 500 }}>
+                            {data.files[id]}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -934,13 +938,13 @@ export default function Home() {
               {activeTab === "api" && (
                 <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
                   {/* Entrypoints Section */}
-                  {data.entrypoints && data.entrypoints.length > 0 && (
+                  {data.entry.length > 0 && (
                     <div
                       style={{
                         background: "var(--bg-secondary)",
                         border: "1px solid var(--border-subtle)",
                         borderRadius: "var(--radius-md)",
-                        padding: "20px",
+                        padding: "24px",
                       }}
                     >
                       <h4
@@ -956,63 +960,20 @@ export default function Home() {
                       >
                         Entrypoints
                       </h4>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {data.entrypoints.map((ep, i) => (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {data.entry.map((id, i) => (
                           <div
-                            key={`${ep.file}-${ep.line}-${i}`}
+                            key={`${id}-${i}`}
                             style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "12px",
-                              padding: "10px 14px",
+                              padding: "16px",
                               background: "var(--bg-tertiary)",
-                              borderRadius: "var(--radius-sm)",
                               border: "1px solid var(--border-subtle)",
+                              borderRadius: "var(--radius-sm)",
                             }}
                           >
-                            <span
-                              style={{
-                                fontSize: "10px",
-                                fontWeight: 700,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                                padding: "2px 8px",
-                                borderRadius: "var(--radius-sm)",
-                                background: ep.type === "server_bootstrap"
-                                  ? "rgba(108, 140, 255, 0.15)"
-                                  : ep.type === "client_bootstrap"
-                                    ? "rgba(160, 120, 255, 0.15)"
-                                    : "rgba(72, 199, 142, 0.15)",
-                                color: ep.type === "server_bootstrap"
-                                  ? "var(--accent-blue)"
-                                  : ep.type === "client_bootstrap"
-                                    ? "var(--accent-purple)"
-                                    : "var(--accent-green)",
-                                flexShrink: 0,
-                              }}
-                            >
-                              {ep.type.replace(/_/g, " ")}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "13px",
-                                fontFamily: "var(--font-geist-mono), monospace",
-                                color: "var(--text-primary)",
-                                fontWeight: 500,
-                              }}
-                            >
-                              {ep.file}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                color: "var(--text-muted)",
-                                marginLeft: "auto",
-                                flexShrink: 0,
-                              }}
-                            >
-                              line {ep.line}
-                            </span>
+                            <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", fontFamily: "var(--font-geist-mono), monospace" }}>
+                              {data.files[id]}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1020,17 +981,17 @@ export default function Home() {
                   )}
 
 
-                  {/* API Routes Section */}
-                  {data.routes && data.routes.length > 0 && (
+                  {/* API Surface Section */}
+                  {data.api.length > 0 && (
                     <div
                       style={{
                         background: "var(--bg-secondary)",
                         border: "1px solid var(--border-subtle)",
                         borderRadius: "var(--radius-md)",
-                        padding: "20px",
+                        padding: "24px",
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                         <h4
                           style={{
                             fontSize: "13px",
@@ -1041,97 +1002,60 @@ export default function Home() {
                             margin: 0,
                           }}
                         >
-                          API Routes
+                          API Surface
                         </h4>
                         <span
                           style={{
                             fontSize: "11px",
-                            color: "var(--text-muted)",
-                            background: "var(--bg-tertiary)",
+                            fontWeight: 600,
                             padding: "2px 8px",
-                            borderRadius: "var(--radius-sm)",
+                            background: "var(--bg-tertiary)",
+                            borderRadius: "10px",
+                            color: "var(--accent-blue)",
                             fontFamily: "var(--font-geist-mono), monospace",
                           }}
                         >
-                          {data.routes.length} endpoint{data.routes.length !== 1 ? "s" : ""}
+                          {data.api.length} endpoint{data.api.length !== 1 ? "s" : ""}
                         </span>
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        {data.routes.map((route, i) => {
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {data.api.map((route, i) => {
                           const methodColors: Record<string, string> = {
                             GET: "#48c78e",
                             POST: "#6c8cff",
                             PUT: "#f5a623",
-                            PATCH: "#f5a623",
                             DELETE: "#ff6b7a",
-                            USE: "#888",
-                            ALL: "#a078ff",
-                            CONTROLLER: "#e0234e",
-                            RESOURCE: "#cc0000",
+                            PATCH: "#a97bff",
                           };
-                          const color = methodColors[route.method] || "#888";
+                          const [method, path, handler] = route;
                           return (
                             <div
-                              key={`${route.method}-${route.path}-${route.file}-${i}`}
+                              key={i}
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: "10px",
-                                padding: "8px 14px",
+                                gap: "12px",
+                                padding: "12px 16px",
                                 background: "var(--bg-tertiary)",
-                                borderRadius: "var(--radius-sm)",
                                 border: "1px solid var(--border-subtle)",
+                                borderRadius: "var(--radius-sm)",
                               }}
                             >
                               <span
                                 style={{
-                                  fontSize: "10px",
-                                  fontWeight: 800,
-                                  fontFamily: "var(--font-geist-mono), monospace",
-                                  letterSpacing: "0.5px",
-                                  padding: "2px 8px",
-                                  borderRadius: "var(--radius-sm)",
-                                  background: `${color}20`,
-                                  color: color,
-                                  minWidth: "60px",
-                                  textAlign: "center" as const,
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {route.method}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: "13px",
-                                  fontFamily: "var(--font-geist-mono), monospace",
-                                  color: "var(--text-primary)",
-                                  fontWeight: 500,
-                                }}
-                              >
-                                {route.path}
-                              </span>
-                              <span
-                                style={{
                                   fontSize: "11px",
-                                  color: "var(--text-muted)",
-                                  marginLeft: "auto",
-                                  flexShrink: 0,
-                                  fontFamily: "var(--font-geist-mono), monospace",
+                                  fontWeight: 800,
+                                  color: methodColors[method] || "var(--text-muted)",
+                                  minWidth: "50px",
                                 }}
                               >
-                                {route.file}:{route.line}
+                                {method}
                               </span>
-                              <span
-                                style={{
-                                  fontSize: "10px",
-                                  color: "var(--text-muted)",
-                                  background: "var(--bg-secondary)",
-                                  padding: "1px 6px",
-                                  borderRadius: "var(--radius-sm)",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                {route.framework}
+                              <span style={{ fontSize: "14px", fontWeight: 600, flex: 1, fontFamily: "var(--font-geist-mono), monospace" }}>
+                                {path}
+                              </span>
+                              <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-geist-mono), monospace" }}>
+                                {typeof handler === 'number' ? data.files[handler] : handler}
                               </span>
                             </div>
                           );
@@ -1168,7 +1092,7 @@ export default function Home() {
                     >
                       Repository Structure
                     </h4>
-                    <FileTree tree={data.structure} />
+                    <FileTree tree={data.st} />
                   </div>
                 </div>
               )}
