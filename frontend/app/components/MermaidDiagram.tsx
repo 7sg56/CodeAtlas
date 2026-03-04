@@ -69,17 +69,15 @@ export default function MermaidDiagram({ syntax, title = "API Flow" }: MermaidDi
                     `mermaid_${uniqueId}`,
                     syntax
                 );
-                if (!cancelled) {
-                    setSvgContent(svg);
-                    setError(null);
-                }
+                if (cancelled) return;
+                setSvgContent(svg);
+                setError(null);
             } catch (err: unknown) {
-                if (!cancelled) {
-                    const message =
-                        err instanceof Error ? err.message : "Failed to render diagram";
-                    setError(message);
-                    setSvgContent("");
-                }
+                if (cancelled) return;
+                const message =
+                    err instanceof Error ? err.message : "Failed to render diagram";
+                setError(message);
+                setSvgContent("");
             }
         }
 
