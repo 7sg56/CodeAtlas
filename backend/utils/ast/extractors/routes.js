@@ -41,9 +41,48 @@ function firstStringArg(node, source) {
 // JavaScript / TypeScript
 // ---------------------------------------------------------------------------
 
+function extractNextjsRoutes(tree, source, relativePath) {
+  const routes = [];
+  const root = tree.rootNode;
+
+  // Next.js App Router: route.ts/js
+  const fileName = relativePath.split('/').pop();
+  if (fileName === 'route.ts' || fileName === 'route.js') {
+    const exports = findNodes(root, (n) =>
+      n.type === 'export_statement' && n.text.includes('function')
+    );
+
+    // Extract path from directory: app/api/user/route.ts -> /api/user
+    let path = relativePath
+      .replace(/^app\//, '/')   // remove app prefix
+      .replace(/\/route\.[tj]s$/, ''); // remove /route.ts
+
+    if (path === '') path = '/';
+
+    for (const exp of exports) {
+      const match = exp.text.match(/export (?:async )?function (GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)/);
+      if (match) {
+        routes.push({
+          file: relativePath,
+          method: match[1],
+          path,
+          line: exp.startPosition.row + 1,
+          framework: "Next.js",
+        });
+      }
+    }
+  }
+  return routes;
+}
+
 function extractJSRoutes(tree, source, relativePath) {
   const routes = [];
   const root = tree.rootNode;
+
+  // 1. Next.js Check
+  if (relativePath.includes('app/')) {
+    routes.push(...extractNextjsRoutes(tree, source, relativePath));
+  }
 
   const calls = findNodes(root, (n) => n.type === "call_expression");
 

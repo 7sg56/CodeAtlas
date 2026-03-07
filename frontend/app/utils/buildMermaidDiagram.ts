@@ -38,7 +38,12 @@ interface DependencyInfo {
 }
 
 function escapeLabel(label: string): string {
-    return label.replace(/"/g, "'").replace(/[[\](){}]/g, "");
+    return label
+        .replace(/"/g, "")
+        .replace(/\[/g, "［")
+        .replace(/\]/g, "］")
+        .replace(/\(/g, "（")
+        .replace(/\)/g, "）");
 }
 
 function toNodeId(str: string): string {
@@ -83,7 +88,8 @@ function groupRoutes(routes: RouteInfo[]): { path: string; count: number }[] {
         const normalized = route.path.startsWith("/") ? route.path : `/${route.path}`;
         const segments = normalized.split("/").filter(Boolean);
         let key: string;
-        if (segments.length >= 2) key = `/${segments[0]}/${segments[1]}`;
+        if (segments.length >= 3) key = `/${segments[0]}/${segments[1]}/${segments[2]}`;
+        else if (segments.length === 2) key = `/${segments[0]}/${segments[1]}`;
         else if (segments.length === 1) key = `/${segments[0]}`;
         else key = "/";
         groups.set(key, (groups.get(key) || 0) + 1);
@@ -91,7 +97,7 @@ function groupRoutes(routes: RouteInfo[]): { path: string; count: number }[] {
     return Array.from(groups.entries())
         .map(([path, count]) => ({ path, count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
+        .slice(0, 8);
 }
 
 interface ArchInput {
