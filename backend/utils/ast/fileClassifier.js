@@ -25,7 +25,12 @@ function classifyFile(filePath) {
     if (isController) return 'controller';
 
     const isService = fileName.includes('service') || fileName.includes('handler') || fileName.includes('manager') || fileName.includes('analyzer') || fileName.includes('engine') || fileName.includes('logic') || fileName.includes('parser') || fileName.includes('extractor') || dirname.includes('services') || dirname.includes('providers') || dirname.includes('logic');
-    if (isService) return 'service';
+    if (isService) {
+        if (dirname.includes('engine') || dirname.includes('parser') || dirname.includes('extractor')) {
+            return 'core_system_logic';
+        }
+        return 'service';
+    }
 
     // 4. UI Components / Frontend
     const uiDirs = ['components', 'pages', 'ui', 'views', 'layouts'];

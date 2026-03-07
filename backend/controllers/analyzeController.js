@@ -3,9 +3,6 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const { buildTree, detectLanguages, countNodes } = require("../utils/scanner");
 const { analyzeRepo } = require("../utils/ast/analyzer");
-const { buildSemanticGraph } = require("../utils/ast/semanticGraphBuilder");
-const { createChunks } = require("../utils/ai/chunker");
-const { buildGroqPrompt } = require("../utils/ai/promptBuilder");
 const { getCached, setCached, cleanupRepo, REPO_DIR } = require("../utils/repoCache");
 
 /**

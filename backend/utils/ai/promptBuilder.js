@@ -1,101 +1,47 @@
 /**
  * AI Prompt Builder
  * 
- * Transforms the full repository analysis into a single structured JSON payload for Groq.
+ * Transforms the repository graph and semantic intelligence results into a 
+ * compact JSON payload optimized for Groq LLM reasoning.
  */
 
-function buildGroqPrompt({ analysisResult, semanticGraph, chunks }) {
-    const {
-        repoId,
-        astFrameworks,
-        languages,
-        entrypoints,
-        filesAnalyzed,
-        summary,
-        routes,
-        structure,
-        stats,
-        dependencies,
-        symbols,
-        complexity
-    } = analysisResult;
-    const { callGraph, moduleGraph, routeHandlers } = semanticGraph;
+function buildGroqPrompt({ project, modules, module_dependencies, entrypoints, api_routes, execution_flow, onboarding, architecture_graph }) {
+  const instruction = `Analyze the repository structure and generate a developer onboarding summary explaining:
+1. what the project does
+2. the architecture of the system
+3. the responsibilities of each module
+4. how components interact
+5. where a new developer should start reading code`;
 
-    // Filter and prioritize chunks
-    const prioritizedChunks = chunks
-        .filter(c => {
-            const isHandler = routeHandlers.some(rh => rh.file === c.file && rh.handler === c.symbol);
-            const isEntry = entrypoints.some(ep => ep.file === c.file);
-            const isService = c.file.toLowerCase().includes("service");
-            const isCtrl = c.file.toLowerCase().includes("controller");
-            return isHandler || isEntry || isService || isCtrl;
-        })
-        .slice(0, 50);
+  const prompt = {
+    project: {
+      name: project.name || "Unknown Project",
+      type: project.type || "Software Repository",
+      architecture: project.architecture || "Unknown Architecture",
+      purpose: project.purpose || "Generic functional analysis"
+    },
+    modules: modules.map(m => ({
+      name: m.module,
+      responsibility: `Handles ${m.roles.slice(0, 2).join(', ')} of ${m.responsibility_keywords.slice(0, 3).sort().join(', ')}`,
+      files: m.files,
+      key_functions: m.key_functions.slice(0, 5)
+    })),
+    architecture_graph: architecture_graph || {
+      modules: [],
+      edges: []
+    },
+    module_dependencies: module_dependencies || [],
+    entrypoints: entrypoints || [],
+    api_routes: api_routes || [],
+    execution_flow: execution_flow || [],
+    onboarding: {
+      recommended_reading_order: onboarding.recommended_reading_order || []
+    },
+    instruction
+  };
 
-    // Fill up if less than 50
-    if (prioritizedChunks.length < 50) {
-        const seenFiles = new Set(prioritizedChunks.map(c => `${c.file}:${c.symbol}`));
-        for (const c of chunks) {
-            if (prioritizedChunks.length >= 50) break;
-            const key = `${c.file}:${c.symbol}`;
-            if (!seenFiles.has(key)) {
-                prioritizedChunks.push(c);
-                seenFiles.add(key);
-            }
-        }
-    }
-
-    // The final object combines raw AST results for the UI with normalized semantic graphs for the AI
-    return {
-        // UI compatibility fields
-        repoId,
-        frameworks: astFrameworks,
-        languages,
-        stats,
-        structure,
-        entrypoints,
-        routes,
-        dependencies,
-        symbols,
-        complexity,
-        analysis: {
-            filesAnalyzed,
-            summary
-        },
-
-        // AI-optimized payload sections
-        groqContext: {
-            projectOverview: {
-                frameworks: astFrameworks,
-                languages: languages.map(l => l.language),
-                entrypoints: entrypoints.map(ep => ({ file: ep.file, type: ep.type })),
-                filesAnalyzed
-            },
-            architecture: {
-                callGraph,
-                moduleGraph,
-                dependencies
-            },
-            apiSurface: {
-                routes,
-                routeHandlers
-            },
-            modules: {
-                detectedModules: moduleGraph.modules.map(m => m.name),
-                filesPerModule: moduleGraph.modules.reduce((acc, m) => {
-                    acc[m.name] = m.files;
-                    return acc;
-                }, {})
-            },
-            complexity: {
-                totalFunctions: summary.totalFunctions,
-                totalClasses: summary.totalClasses,
-                averageComplexity: summary.avgComplexity
-            },
-            chunks: prioritizedChunks,
-            instruction: "Analyze this repository structure and explain its architecture, major modules, and API flow. Identify important components and summarize how the system works."
-        }
-    };
+  // Token Optimization: Groq JSON must favor architectural signals, not raw data.
+  return prompt;
 }
 
 module.exports = { buildGroqPrompt };

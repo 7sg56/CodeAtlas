@@ -10,21 +10,45 @@ const { extractFileMetadata } = require("./extractors/fileMetadata");
 const { buildTree, countNodes, detectLanguages } = require("../scanner");
 const path = require("path");
 
+// New Semantic Intelligence Modules
+const { generateFileSemanticSummary } = require("./fileSemanticSummary");
+const { buildRepoFingerprint } = require("./repoFingerprint");
+const { buildHeuristicCallGraph } = require("./callGraphBuilder");
+const { buildModuleClusters } = require("./moduleClusterer");
+const { detectArchitecturePattern } = require("./architectureDetector");
+const { buildExecutionFlow } = require("./executionFlowBuilder");
+const { buildOnboardingPath } = require("./onboardingPath");
+const { inferProjectPurpose } = require("./projectPurposeInferer");
+const { buildGroqPrompt } = require("../ai/promptBuilder");
+
+// Graph intelligence modules
+const { buildGraphOfCode } = require("./graphBuilder");
+const { findDependencyHubs, onboardingPathFromGraph } = require("./graphAnalysis");
+
 /**
- * Run optimized file-centric AST analysis for LLM consumption.
+ * Repository Intelligence Engine - AST & Semantic Pipeline
+ * Analyzes repository structure, determines purpose, and produces LLM contexts.
  */
 async function analyzeRepo(repoPath, originalName = null) {
   const repoName = originalName || path.basename(repoPath);
   const rawFiles = [];
   const globalFrameworks = new Set();
+  const configFiles = [];
 
   // Get tree and stats for UI
   const structure = await buildTree(repoPath);
   const stats = countNodes(structure);
   const languages = detectLanguages(structure);
 
-  // 1. Collect and Classify Files
+  // 1. AST Analysis Pass
   for await (const parsed of walkAndParse(repoPath)) {
+    const fileName = path.basename(parsed.relativePath).toLowerCase();
+    
+    // Detect framework/configuration files
+    if (['package.json', 'dockerfile', 'ts-config', 'requirements.txt', 'go.mod', 'cargo.toml'].some(f => fileName.includes(f))) {
+      configFiles.push(parsed.relativePath);
+    }
+
     const type = classifyFile(parsed.relativePath);
     const fileData = {
       tree: parsed.tree,
@@ -33,7 +57,8 @@ async function analyzeRepo(repoPath, originalName = null) {
       relativePath: parsed.relativePath,
     };
 
-    const isDeep = ['router', 'controller', 'service', 'entrypoint'].includes(type);
+    // Deep analysis for semantic role extraction
+    const isDeep = ['router', 'controller', 'service', 'entrypoint'].includes(type) || parsed.relativePath.includes('engine') || parsed.relativePath.includes('logic');
     let analysis = {};
 
     if (isDeep) {
@@ -41,14 +66,16 @@ async function analyzeRepo(repoPath, originalName = null) {
         routes: extractRoutes(fileData),
         symbols: extractSymbols(fileData),
         complexity: extractComplexity(fileData),
-        imports: extractImports(fileData).map(i => i.to)
+        imports: extractImports(fileData).map(i => i.to),
+        language: parsed.language
       };
       extractFrameworks(fileData).forEach(fw => globalFrameworks.add(fw));
     } else {
       const meta = extractFileMetadata(fileData);
       analysis = {
         imports: meta.imports,
-        exports: meta.exports
+        exports: meta.exports,
+        language: parsed.language
       };
     }
 
@@ -62,29 +89,54 @@ async function analyzeRepo(repoPath, originalName = null) {
       entrypoints: isDeep ? extractEntrypoints(fileData) : []
     });
 
-    if (rawFiles.length >= 500) break;
+    if (rawFiles.length >= 700) break; // Increased capacity for intelligence depth
   }
 
-  // 2. Prioritize and Limit to 70 files
-  const priority = { entrypoint: 0, router: 1, controller: 2, service: 3, component: 4, utility: 5, unknown: 6 };
-  const sortedFiles = rawFiles.sort((a, b) => priority[a.type] - priority[b.type]);
-  const finalFiles = sortedFiles.slice(0, 70);
+  // 2. Semantic Intelligence Pipeline
+  const fileSummaries = rawFiles.map(f => generateFileSemanticSummary({ ...f, relativePath: f.file }));
+  
+  const entrypoints = rawFiles.flatMap(f => f.entrypoints).map(ep => ep.file || ep.type).filter(Boolean);
+  const routes = rawFiles.flatMap(f => f.analysis.routes || []).map(r => `${r.method} ${r.path}`);
+  
+  const fingerprint = buildRepoFingerprint({
+    frameworks: Array.from(globalFrameworks),
+    languages: Array.from(new Set(languages.map(l => l.language.toLowerCase()))),
+    entrypoints: entrypoints.slice(0, 5),
+    routes: routes.slice(0, 10),
+    configFiles: configFiles.slice(0, 5)
+  });
 
-  // 3. Create File Index Maps
-  const files = {};
-  const tipo = {};
+  const modules = buildModuleClusters(fileSummaries);
+  const callGraph = buildHeuristicCallGraph(rawFiles);
+  const graph = buildGraphOfCode(rawFiles, modules);
+  
+  // Extract hubs and onboarding path using graph intelligence
+  const graphHubs = findDependencyHubs(graph);
+  const graphOnboarding = onboardingPathFromGraph(graph);
+
+  const architecture = detectArchitecturePattern(fileSummaries, fingerprint);
+  const executionFlow = buildExecutionFlow(fingerprint, fileSummaries);
+  const purposeInfo = inferProjectPurpose(fingerprint, modules);
+
+  // 3. ID-based mapping for UI compatibility
+  const filesMap = {};
+  const typesMap = {};
   const pathToId = {};
   const extensionlessPathToId = {};
+  
+  // Sort files for priority in UI (entrypoints first)
+  const priority = { entrypoint: 0, router: 1, controller: 2, service: 3, engine: 4, component: 5, utility: 6, unknown: 7 };
+  const sortedFiles = [...rawFiles].sort((a, b) => (priority[a.type] || 7) - (priority[b.type] || 7));
+  const finalFiles = sortedFiles.slice(0, 70); // UI limit
 
   finalFiles.forEach((f, i) => {
     const id = i + 1;
-    files[id] = f.file;
-    tipo[id] = f.type;
+    filesMap[id] = f.file;
+    typesMap[id] = f.type;
     pathToId[f.file] = id;
     extensionlessPathToId[f.file.replace(/\.\w+$/, "")] = id;
   });
 
-  // 4. Dependency Hub Detection (Top 8) & API Extraction
   const deps = [];
   const inDegree = {};
   const outDegree = {};
@@ -109,7 +161,7 @@ async function analyzeRepo(repoPath, originalName = null) {
       api.push([r.method, r.path, r.handler || fId]);
     });
 
-    // File details for report
+    // Detailed Analysis for UI
     if (f.isDeep) {
       const compList = f.analysis.complexity?.functions || [];
       const avgCx = compList.reduce((acc, c) => acc + (c.complexity || 0), 0) / (compList.length || 1);
@@ -121,7 +173,6 @@ async function analyzeRepo(repoPath, originalName = null) {
       };
     }
   });
-  console.log(`[analyzer] Found ${deps.length} deps in ${finalFiles.length} files.`);
 
   const hubs = Object.entries(inDegree)
     .map(([id, deg]) => ({ id: Number(id), score: deg + (outDegree[id] || 0) }))
@@ -129,44 +180,62 @@ async function analyzeRepo(repoPath, originalName = null) {
     .slice(0, 8)
     .map(h => h.id);
 
-  // 5. Architecture Summary
-  const routers = finalFiles.filter(f => f.type === 'router').length;
-  const controllers = finalFiles.filter(f => f.type === 'controller').length;
-  const services = finalFiles.filter(f => f.type === 'service').length;
+  const routersCount = finalFiles.filter(f => f.type === 'router').length;
+  const controllersCount = finalFiles.filter(f => f.type === 'controller').length;
+  const servicesCount = finalFiles.filter(f => f.type === 'service').length;
 
-  // 6. Final Payload
-  const payload = {
+  // 4. GROQ-ready Intelligence Payload
+  const groqPrompt = buildGroqPrompt({
+    project: {
+      name: repoName,
+      type: purposeInfo.project_type,
+      architecture: architecture.architecture,
+      purpose: purposeInfo.purpose
+    },
+    modules,
+    module_dependencies: graph.moduleEdges,
+    entrypoints: graphOnboarding.slice(0, 2),
+    api_routes: fingerprint.api_routes,
+    execution_flow: executionFlow.execution_flow,
+    onboarding: { recommended_reading_order: graphOnboarding },
+    architecture_graph: {
+      modules: graph.modules,
+      edges: graph.moduleEdges
+    }
+  });
+
+  console.log("\nFINAL_GROQ_PROMPT:");
+  console.log(JSON.stringify(groqPrompt, null, 2));
+
+  // 5. Final Combined Payload
+  return {
     repo: repoName,
-    fw: Array.from(globalFrameworks).sort(),
+    fw: fingerprint.frameworks,
     lang: languages.map(l => {
       const low = l.language.toLowerCase();
       if (low.includes('javascript')) return 'js';
       if (low.includes('typescript')) return 'ts';
       return low.substring(0, 4);
     }),
-    entry: finalFiles.filter(f => f.type === 'entrypoint').map(f => pathToId[f.file]),
-    files,
-    type: tipo,
+    entry: fingerprint.entrypoints.map(ep => pathToId[ep]).filter(Boolean),
+    files: filesMap,
+    type: typesMap,
     api,
     deps,
     hubs,
     arch: {
-      pattern: globalFrameworks.has("Next.js") ? "Next.js Fullstack" : (routers > 0 && controllers > 0 ? "MVC-REST" : "Service-Oriented"),
-      routers,
-      controllers,
-      services,
-      modules: Math.min(10, finalFiles.filter(f => f.file.includes('/')).length / 3 | 0)
+      pattern: architecture.architecture,
+      routers: routersCount,
+      controllers: controllersCount,
+      services: servicesCount,
+      modules: modules.length
     },
     det,
     st: structure,
     ss: stats,
-    ext: { languages }
+    ext: { languages },
+    groqPrompt
   };
-
-  console.log("FINAL GROQ PAYLOAD");
-  console.log(JSON.stringify(payload, null, 2));
-
-  return payload;
 }
 
 module.exports = { analyzeRepo };
