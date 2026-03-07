@@ -8,7 +8,7 @@ import ModuleExplorer from "./components/ModuleExplorer";
 import ExecutionFlow from "./components/ExecutionFlow";
 import OnboardingGuide from "./components/OnboardingGuide";
 import RiskHotspots from "./components/RiskHotspots";
-import AIExplanation from "./components/AIExplanation";
+import AIAnalysisView from "../components/analysis/AIAnalysisView";
 import InteractiveGraph from "./components/InteractiveGraph";
 import AnalysisProgress from "./components/AnalysisProgress";
 import { buildArchitectureDiagram, buildImportExportMap } from "./utils/buildMermaidDiagram";
@@ -762,7 +762,7 @@ export default function Home() {
                 )}
 
                 {activeTab === "ai" && (
-                  <AIExplanation explanation={data.aiExplanation || ""} />
+                  <AIAnalysisView explanation={data.aiExplanation || ""} />
                 )}
 
                 {activeTab === "arch" && (
