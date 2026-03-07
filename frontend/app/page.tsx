@@ -3,7 +3,16 @@
 import { useState, useRef, useMemo } from "react";
 import FileTree from "./components/FileTree";
 import MermaidDiagram from "./components/MermaidDiagram";
+import ProjectOverview from "./components/ProjectOverview";
+import ModuleExplorer from "./components/ModuleExplorer";
+import ExecutionFlow from "./components/ExecutionFlow";
+import OnboardingGuide from "./components/OnboardingGuide";
+import RiskHotspots from "./components/RiskHotspots";
+import AIExplanation from "./components/AIExplanation";
+import InteractiveGraph from "./components/InteractiveGraph";
+import AnalysisProgress from "./components/AnalysisProgress";
 import { buildArchitectureDiagram, buildImportExportMap } from "./utils/buildMermaidDiagram";
+import { BarChart3, Binary, BookOpen, Code2, Cpu, FileJson, GitGraph, Layers2, LayoutDashboard, Route } from "lucide-react";
 
 interface LanguageInfo {
   language: string;
@@ -56,6 +65,7 @@ interface AnalysisResult {
     controllers: number;
     services: number;
     modules: number;
+    mermaid: string;
   };
   det?: Record<number, {
     fn: string[];
@@ -67,6 +77,18 @@ interface AnalysisResult {
   ext: {
     languages: LanguageInfo[];
   };
+  groqPrompt?: any;
+  aiExplanation?: string;
+  health?: {
+    health_score: number;
+    metrics: {
+      avg_complexity: number;
+      dependency_density: string;
+      module_structure: string;
+      clarity: string;
+    };
+  };
+  hotspots?: { file: string; reason: string }[];
   cached?: boolean;
 }
 
@@ -177,7 +199,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [clearingCache, setClearingCache] = useState(false);
   const [uploadName, setUploadName] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "api" | "files">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "arch" | "modules" | "flow" | "onboarding" | "files" | "graph" | "ai" | "api">("overview");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
@@ -624,13 +646,16 @@ export default function Home() {
           </div>
         )}
 
+        {/* Loading / Progress */}
+        <AnalysisProgress isLoading={loading} error={error} />
+
         {/* Results */}
         {data && (
           <div className="animate-fade-in" style={{ display: "flex", gap: "40px", alignItems: "flex-start", marginTop: "16px" }}>
             {/* Sidebar */}
             <aside
               style={{
-                width: "220px",
+                width: "240px",
                 flexShrink: 0,
                 position: "sticky",
                 top: "32px",
@@ -650,22 +675,28 @@ export default function Home() {
                   paddingLeft: "12px",
                 }}
               >
-                Navigation
+                Intelligence Engine
               </h3>
               {[
-                { id: "overview", label: "Overview", icon: "📊" },
-                { id: "api", label: "API & Endpoints", icon: "🔌" },
-                { id: "files", label: "Files", icon: "📂" },
+                { id: "overview", label: "Overview", icon: <LayoutDashboard size={16} /> },
+                { id: "ai", label: "AI Architect", icon: <Binary size={16} /> },
+                { id: "arch", label: "Architecture", icon: <Cpu size={16} /> },
+                { id: "modules", label: "Modules", icon: <Layers2 size={16} /> },
+                { id: "flow", label: "Execution Flow", icon: <Route size={16} /> },
+                { id: "onboarding", label: "Onboarding", icon: <BookOpen size={16} /> },
+                { id: "graph", label: "Dependency Graph", icon: <GitGraph size={16} /> },
+                { id: "api", label: "API Surface", icon: <FileJson size={16} /> },
+                { id: "files", label: "File Tree", icon: <Code2 size={16} /> },
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as "overview" | "api" | "files")}
+                  onClick={() => setActiveTab(tab.id as any)}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
                     width: "100%",
-                    padding: "10px 12px",
+                    padding: "12px 14px",
                     background: activeTab === tab.id ? "var(--bg-tertiary)" : "transparent",
                     border: "none",
                     borderRadius: "var(--radius-md)",
@@ -689,7 +720,10 @@ export default function Home() {
                     }
                   }}
                 >
-                  <span style={{ fontSize: "16px", opacity: activeTab === tab.id ? 1 : 0.6 }}>{tab.icon}</span>
+                  <span style={{ 
+                    color: activeTab === tab.id ? "var(--accent-blue)" : "inherit",
+                    opacity: activeTab === tab.id ? 1 : 0.6 
+                  }}>{tab.icon}</span>
                   {tab.label}
                 </button>
               ))}
@@ -698,404 +732,95 @@ export default function Home() {
             {/* Main Content Area */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "32px", minWidth: 0 }}>
               {/* Repo name header */}
-              <div style={{ paddingBottom: "16px", borderBottom: "1px solid var(--border-subtle)", marginBottom: "-8px" }}>
-                <h3
-                  style={{
-                    fontSize: "28px",
-                    fontWeight: 700,
-                    margin: 0,
-                    letterSpacing: "-0.5px",
-                  }}
-                >
-                  {repoName}
-                </h3>
+              <div style={{ paddingBottom: "16px", borderBottom: "1px solid var(--border-subtle)", marginBottom: "-8px", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                <div>
+                  <h2 style={{ fontSize: "28px", fontWeight: 700, margin: 0, letterSpacing: "-0.5px" }}>{repoName}</h2>
+                  <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
+                    {data.fw?.slice(0, 3).map((f: string) => (
+                      <span key={f} style={{ fontSize: "11px", fontWeight: 700, background: "rgba(108, 140, 255, 0.1)", color: "var(--accent-blue)", padding: "2px 8px", borderRadius: "100px" }}>{f}</span>
+                    ))}
+                    {data.cached && <span style={{ fontSize: "11px", fontWeight: 700, background: "rgba(245, 166, 35, 0.1)", color: "var(--accent-amber)", padding: "2px 8px", borderRadius: "100px" }}>Cached</span>}
+                  </div>
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-geist-mono), monospace" }}>
+                   ID: {data.id?.substring(0, 8)}
+                </div>
               </div>
 
-              {/* OVERVIEW TAB */}
-              {activeTab === "overview" && (
-                <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                  {/* Stats Row */}
-                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                    {/* Framework Badge */}
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "6px 12px",
-                        background: "var(--bg-tertiary)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-md)",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 500,
-                          color: "var(--text-muted)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        }}
-                      >
-                        {(data.fw?.length || 0) > 1 ? "Frameworks" : "Framework"}
-                      </span>
-                      {(data.fw || ["Unknown"]).map((fw: string) => {
-                        const darkBadge = fw === "Next.js" || fw === "Fastify" || fw === "Flask (Python)" || fw === "Actix (Rust)" || fw === "Symfony (PHP)" || fw === "Sinatra (Ruby)" || fw === "Micronaut (Java)";
-                        return (
-                          <span
-                            key={fw}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "3px 10px",
-                              borderRadius: "var(--radius-sm)",
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              background: `${FRAMEWORK_COLORS[fw] || "#666680"}20`,
-                              color: darkBadge
-                                ? "var(--text-primary)"
-                                : FRAMEWORK_COLORS[fw] || "var(--text-primary)",
-                              border: `1px solid ${FRAMEWORK_COLORS[fw] || "#666680"}30`,
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: "8px",
-                                height: "8px",
-                                borderRadius: "50%",
-                                background: FRAMEWORK_COLORS[fw] || "#666680",
-                              }}
-                            />
-                            {fw}
-                          </span>
-                        );
-                      })}
-                    </div>
-
-                    {/* File count */}
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "8px 16px",
-                        background: "var(--bg-secondary)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-md)",
-                      }}
-                    >
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                        Files
-                      </span>
-                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-green)" }}>
-                        {data.ss.files}
-                      </span>
-                    </div>
-
-                    {/* Folder count */}
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "8px 16px",
-                        background: "var(--bg-secondary)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-md)",
-                      }}
-                    >
-                      <span style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                        Folders
-                      </span>
-                      <span style={{ fontSize: "15px", fontWeight: 600, color: "var(--accent-amber)" }}>
-                        {data.ss.folders}
-                      </span>
-                    </div>
+              {/* TAB CONTENT */}
+              <div className="tab-pane">
+                {activeTab === "overview" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
+                    <ProjectOverview data={data} />
+                    <RiskHotspots data={data} />
                   </div>
+                )}
 
-                  {/* Languages Section */}
-                  {data.ext.languages.length > 0 && (
-                    <div
-                      style={{
-                        background: "var(--bg-secondary)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-md)",
-                        padding: "24px",
-                      }}
-                    >
-                      <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span>🌐</span> Language Distribution
-                      </h4>
+                {activeTab === "ai" && (
+                  <AIExplanation explanation={data.aiExplanation || ""} />
+                )}
 
-                      <div style={{ display: "flex", height: "8px", borderRadius: "4px", overflow: "hidden", marginBottom: "20px" }}>
-                        {data.ext.languages.map((lang: LanguageInfo) => (
-                          <div
-                            key={lang.language}
-                            style={{
-                              width: `${lang.percentage}%`,
-                              background: LANG_COLORS[lang.language] || "#666",
-                              transition: "width 0.5s ease"
-                            }}
-                          />
-                        ))}
+                {activeTab === "arch" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                    {data.arch?.mermaid ? (
+                      <MermaidDiagram syntax={data.arch.mermaid} title="Infrastructure & Module Dependencies" />
+                    ) : (
+                      <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                        <Cpu size={48} style={{ opacity: 0.2, marginBottom: "16px" }} />
+                        <p>Architecture graph could not be synthesized for this repository.</p>
                       </div>
+                    )}
+                  </div>
+                )}
 
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "12px" }}>
-                        {data.ext.languages.map((lang: LanguageInfo) => (
-                          <div
-                            key={lang.language}
-                            title={`${lang.language}: ${lang.percentage}%`}
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              fontSize: "12px",
-                              color: "var(--text-secondary)",
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: "10px",
-                                height: "10px",
-                                borderRadius: "50%",
-                                background: LANG_COLORS[lang.language] || "#666680",
-                                flexShrink: 0,
-                              }}
-                            />
-                            <span style={{ fontWeight: 500 }}>{lang.language}</span>
-                            <span style={{ color: "var(--text-muted)" }}>
-                              {lang.percentage}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                {activeTab === "modules" && (
+                  <ModuleExplorer data={data} />
+                )}
 
+                {activeTab === "flow" && (
+                  <ExecutionFlow data={data} />
+                )}
 
-                  {/* Architecture Overview */}
-                  {architectureSyntax && (
-                    <MermaidDiagram syntax={architectureSyntax} title="Architecture" />
-                  )}
+                {activeTab === "onboarding" && (
+                  <OnboardingGuide data={data} />
+                )}
 
+                {activeTab === "graph" && (
+                  <InteractiveGraph data={{
+                    entries: data.entry,
+                    files: data.files,
+                    deps: data.deps,
+                    hubs: data.hubs
+                  }} />
+                )}
 
-                  {/* Summary Stats Summary Section */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                      gap: "16px",
-                    }}
-                  >
-                    {[
-                      { label: "Files Analyzed", value: Object.keys(data.files).length, color: "var(--accent-blue)" },
-                      { label: "Routers", value: data.arch.routers, color: "var(--accent-purple)" },
-                      { label: "Controllers", value: data.arch.controllers, color: "var(--accent-green)" },
-                      { label: "Services", value: data.arch.services, color: "var(--accent-amber)" },
-                    ].map((stat) => (
-                      <div
-                        key={stat.label}
-                        style={{
-                          padding: "20px",
-                          background: "var(--bg-secondary)",
-                          border: "1px solid var(--border-subtle)",
-                          borderRadius: "var(--radius-md)",
-                        }}
-                      >
-                        <div style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" }}>
-                          {stat.label}
-                        </div>
-                        <div style={{ fontSize: "24px", fontWeight: 700, color: stat.color }}>
-                          {stat.value}
+                {activeTab === "api" && (
+                   <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                      <div style={{ background: "var(--bg-secondary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)", padding: "24px" }}>
+                        <h3 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+                          <Route size={22} color="var(--accent-green)" />
+                          API Surface Area
+                        </h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                          {data.api.map((route: any, i: number) => {
+                             const [method, path, fileId] = route;
+                             return (
+                                <div key={i} style={{ display: "flex", alignItems: "center", gap: "16px", padding: "14px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                                   <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--accent-green)", minWidth: "50px" }}>{method}</span>
+                                   <span style={{ fontSize: "14px", fontWeight: 600, flex: 1, fontFamily: "var(--font-geist-mono), monospace" }}>{path}</span>
+                                   <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-geist-mono), monospace" }}>{data.files[fileId] || fileId}</span>
+                                </div>
+                             );
+                          })}
                         </div>
                       </div>
-                    ))}
-                  </div>
+                   </div>
+                )}
 
-                  {/* Anchors Section */}
-                  {data.hubs.length > 0 && (
-                    <div style={{ marginTop: "32px", background: "var(--bg-secondary)", padding: "24px", borderRadius: "12px", border: "1px solid var(--border-subtle)" }}>
-                      <h4 style={{ fontSize: "14px", fontWeight: 600, marginBottom: "16px", color: "var(--text-muted)", textTransform: "uppercase" }}>
-                        ⚓ Architectural Anchors
-                      </h4>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                        {data.hubs.map(id => (
-                          <span key={id} style={{ padding: "6px 14px", background: "var(--bg-tertiary)", border: "1px solid var(--border-subtle)", borderRadius: "20px", fontSize: "13px", fontWeight: 500 }}>
-                            {data.files[id]}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-
-                </div>
-              )}
-
-              {/* API TAB */}
-              {activeTab === "api" && (
-                <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                  {/* Entrypoints Section */}
-                  {data.entry.length > 0 && (
-                    <div
-                      style={{
-                        background: "var(--bg-secondary)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-md)",
-                        padding: "24px",
-                      }}
-                    >
-                      <h4
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: "var(--text-muted)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                          marginTop: 0,
-                          marginBottom: "16px",
-                        }}
-                      >
-                        Entrypoints
-                      </h4>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                        {data.entry.map((id, i) => (
-                          <div
-                            key={`${id}-${i}`}
-                            style={{
-                              padding: "16px",
-                              background: "var(--bg-tertiary)",
-                              border: "1px solid var(--border-subtle)",
-                              borderRadius: "var(--radius-sm)",
-                            }}
-                          >
-                            <div style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", fontFamily: "var(--font-geist-mono), monospace" }}>
-                              {data.files[id]}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-
-                  {/* API Surface Section */}
-                  {data.api.length > 0 && (
-                    <div
-                      style={{
-                        background: "var(--bg-secondary)",
-                        border: "1px solid var(--border-subtle)",
-                        borderRadius: "var(--radius-md)",
-                        padding: "24px",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                        <h4
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            color: "var(--text-muted)",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.5px",
-                            margin: 0,
-                          }}
-                        >
-                          API Surface
-                        </h4>
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            padding: "2px 8px",
-                            background: "var(--bg-tertiary)",
-                            borderRadius: "10px",
-                            color: "var(--accent-blue)",
-                            fontFamily: "var(--font-geist-mono), monospace",
-                          }}
-                        >
-                          {data.api.length} endpoint{data.api.length !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                        {data.api.map((route, i) => {
-                          const methodColors: Record<string, string> = {
-                            GET: "#48c78e",
-                            POST: "#6c8cff",
-                            PUT: "#f5a623",
-                            DELETE: "#ff6b7a",
-                            PATCH: "#a97bff",
-                          };
-                          const [method, path, handler] = route;
-                          return (
-                            <div
-                              key={i}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "12px",
-                                padding: "12px 16px",
-                                background: "var(--bg-tertiary)",
-                                border: "1px solid var(--border-subtle)",
-                                borderRadius: "var(--radius-sm)",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: "11px",
-                                  fontWeight: 800,
-                                  color: methodColors[method] || "var(--text-muted)",
-                                  minWidth: "50px",
-                                }}
-                              >
-                                {method}
-                              </span>
-                              <span style={{ fontSize: "14px", fontWeight: 600, flex: 1, fontFamily: "var(--font-geist-mono), monospace" }}>
-                                {path}
-                              </span>
-                              <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-geist-mono), monospace" }}>
-                                {typeof handler === 'number' ? data.files[handler] : handler}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-
-                  {/* API Wiring Guide */}
-                  {importMapSyntax && (
-                    <MermaidDiagram syntax={importMapSyntax} title="API Wiring Guide" />
-                  )}
-
-
-                </div>
-              )}
-
-              {/* FILES TAB */}
-              {activeTab === "files" && (
-                <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                  {/* File Tree */}
-                  <div>
-                    <h4
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        color: "var(--text-muted)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.5px",
-                        marginTop: 0,
-                        marginBottom: "12px",
-                      }}
-                    >
-                      Repository Structure
-                    </h4>
-                    <FileTree tree={data.st} />
-                  </div>
-                </div>
-              )}
+                {activeTab === "files" && (
+                  <FileTree tree={data.st} />
+                )}
+              </div>
             </div>
           </div>
         )}
