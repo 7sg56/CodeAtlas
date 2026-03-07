@@ -25,7 +25,7 @@ async function generateArchitecturalExplanation(promptContext) {
           content: JSON.stringify(promptContext, null, 2)
         }
       ],
-      model: "llama3-70b-8192", // High reasoning capacity
+      model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile", // Dynamic or fallback model
       temperature: 0.2,
       max_tokens: 3000,
       top_p: 1,
