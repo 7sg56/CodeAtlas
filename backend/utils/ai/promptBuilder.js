@@ -69,7 +69,8 @@ Keep explanations concise and technical.`;
     modules: modules.map(m => ({
       name: m.module,
       responsibility: `Handles ${m.roles?.slice(0, 2).join(', ') || 'logic'} of ${m.responsibility_keywords?.slice(0, 3).sort().join(', ') || 'unspecified domain'}`,
-      files: m.files,
+      file_count: m.files,
+      files: m.filesInModule,
       key_functions: m.key_functions?.slice(0, 5) || []
     })),
     risk_hotspots: hotspots || [],
