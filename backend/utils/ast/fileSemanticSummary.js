@@ -12,6 +12,12 @@ function generateFileSemanticSummary(fileData) {
   const keywordInfo = extractKeywords(fileData);
 
   const keyFunctions = (analysis.symbols?.functions?.map(f => f.name) || analysis.exports || []).slice(0, 10);
+  
+  // Complexity heuristic for health scoring
+  const compList = analysis.complexity?.functions || [];
+  const avgComplexity = compList.length > 0 
+    ? compList.reduce((acc, c) => acc + (c.complexity || 0), 0) / compList.length 
+    : 0;
 
   const summary = {
     file: relativePath,
@@ -19,7 +25,8 @@ function generateFileSemanticSummary(fileData) {
     keywords: keywordInfo.keywords,
     key_functions: keyFunctions,
     imports: (analysis.imports || []).slice(0, 5),
-    exports: (analysis.exports || []).slice(0, 5)
+    exports: (analysis.exports || []).slice(0, 5),
+    avg_complexity: Number(avgComplexity.toFixed(1))
   };
 
   // Skip raw code symbols, only signals

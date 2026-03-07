@@ -5,27 +5,74 @@
  * compact JSON payload optimized for Groq LLM reasoning.
  */
 
-function buildGroqPrompt({ project, modules, module_dependencies, entrypoints, api_routes, execution_flow, onboarding, architecture_graph }) {
-  const instruction = `Analyze the repository structure and generate a developer onboarding summary explaining:
-1. what the project does
-2. the architecture of the system
-3. the responsibilities of each module
-4. how components interact
-5. where a new developer should start reading code`;
+function buildGroqPrompt({ 
+  project, 
+  modules, 
+  module_dependencies, 
+  entrypoints, 
+  api_routes, 
+  execution_flow, 
+  onboarding, 
+  architecture_graph,
+  health,
+  hotspots 
+}) {
+  const instruction = `You are a senior software architect helping developers understand unfamiliar codebases.
+You must analyze the repository using ONLY the structured data provided.
+Do not invent missing information.
+Do not assume frameworks that are not listed.
+
+TASK:
+Using the information provided in the JSON sections, generate a structured explanation of the repository.
+Explain:
+1. What the project does
+2. The system architecture
+3. The role of each module
+4. The execution flow of the system
+5. Where a new developer should start reading
+6. Any architectural risks or complexity areas
+
+OUTPUT FORMAT:
+Return the answer in the following structure:
+
+PROJECT PURPOSE
+Explain what the system does.
+
+ARCHITECTURE OVERVIEW
+Explain the architecture pattern.
+
+MODULE BREAKDOWN
+Explain each module.
+
+EXECUTION FLOW
+Describe how the system runs.
+
+DEVELOPER ONBOARDING
+Explain where a developer should start.
+
+RISK AREAS
+Explain complexity or architectural risks.
+
+Keep explanations concise and technical.`;
 
   const prompt = {
     project: {
       name: project.name || "Unknown Project",
       type: project.type || "Software Repository",
       architecture: project.architecture || "Unknown Architecture",
-      purpose: project.purpose || "Generic functional analysis"
+      purpose: project.purpose || "Generic functional analysis",
+      frameworks: project.frameworks || [],
+      languages: project.languages || [],
+      health_score: health?.health_score || 0,
+      health_metrics: health?.metrics || {}
     },
     modules: modules.map(m => ({
       name: m.module,
-      responsibility: `Handles ${m.roles.slice(0, 2).join(', ')} of ${m.responsibility_keywords.slice(0, 3).sort().join(', ')}`,
+      responsibility: `Handles ${m.roles?.slice(0, 2).join(', ') || 'logic'} of ${m.responsibility_keywords?.slice(0, 3).sort().join(', ') || 'unspecified domain'}`,
       files: m.files,
-      key_functions: m.key_functions.slice(0, 5)
+      key_functions: m.key_functions?.slice(0, 5) || []
     })),
+    risk_hotspots: hotspots || [],
     architecture_graph: architecture_graph || {
       modules: [],
       edges: []
@@ -40,7 +87,6 @@ function buildGroqPrompt({ project, modules, module_dependencies, entrypoints, a
     instruction
   };
 
-  // Token Optimization: Groq JSON must favor architectural signals, not raw data.
   return prompt;
 }
 

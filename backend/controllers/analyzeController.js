@@ -4,9 +4,11 @@ const { v4: uuidv4 } = require("uuid");
 const { buildTree, detectLanguages, countNodes } = require("../utils/scanner");
 const { analyzeRepo } = require("../utils/ast/analyzer");
 const { getCached, setCached, cleanupRepo, REPO_DIR } = require("../utils/repoCache");
+const { storeAnalysisToS3, storeMetadataToDynamo } = require("../utils/storage/aws");
 
 /**
  * Main Analysis Orchestrator
+ * Pipeline: Clone -> Unified AST -> Semantic Graph -> Module Summary -> Groq Context -> Store
  */
 async function analyzeRepository(req, res) {
     const { githubUrl, repoUrl } = req.body;
@@ -16,12 +18,8 @@ async function analyzeRepository(req, res) {
         return res.status(400).json({ error: "GitHub URL required" });
     }
 
-    // Check cache
     const cached = getCached(url);
     if (cached) {
-        console.log("===== CACHED OPTIMIZED PAYLOAD =====");
-        console.log(JSON.stringify(cached, null, 2));
-        console.log("=====================================");
         return res.json({ success: true, ...cached, cached: true });
     }
 
@@ -29,29 +27,25 @@ async function analyzeRepository(req, res) {
     const repoPath = path.join(REPO_DIR, repoId);
 
     try {
-        // 1. Clone repo
+        // 1. Clone repository
         await simpleGit().clone(url, repoPath, ["--depth", "1"]);
-
-        // 2. Run Optimized AST Analysis Pipeline
         const originalName = url.split("/").pop().replace(".git", "");
-        const payload = await analyzeRepo(repoPath, originalName);
 
-        // Add instance metadata
+        // 2. Repository Intelligence Engine Pipeline
+        // This includes AST Analysis, Semantic Graph, and Module Clustering
+        const payload = await analyzeRepo(repoPath, originalName);
         payload.id = repoId;
 
-        // Logging
-        console.log("===== FINAL GROQ-READY OPTIMIZED PAYLOAD =====");
-        console.log(JSON.stringify(payload, null, 2));
-        console.log("===============================================");
+        // 3. Optional AWS Storage Integration (Phase 12)
+        const s3Url = await storeAnalysisToS3(repoId, payload);
+        await storeMetadataToDynamo(repoId, originalName, "COMPLETED", s3Url);
 
-        // Cache the result
+        // 4. Cache & Return Response
         setCached(url, payload);
-
-        // 3. Return response
         res.json({ success: true, ...payload, cached: false });
 
     } catch (err) {
-        console.error("Analysis failed:", err);
+        console.error("Repository Intelligent Engine failed:", err);
         res.status(500).json({ error: "Analysis failed", details: err.message });
     } finally {
         await cleanupRepo(repoPath);
