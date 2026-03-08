@@ -8,51 +8,8 @@ interface ExecutionFlowProps {
 }
 
 export default function ExecutionFlow({ data }: ExecutionFlowProps) {
-  const { groqPrompt, aiExplanation } = data;
-  
-  const aiFlowSteps = useMemo(() => {
-    if (!aiExplanation) return null;
-    
-    const lines = aiExplanation.split('\n');
-    let sectionContent: string[] = [];
-    let insideSection = false;
-    
-    for (const line of lines) {
-      const cleanLine = line.trim().replace(/^[#\s*]+|[#\s*]+$/g, "").toUpperCase();
-      if (cleanLine.startsWith("HOW THE SYSTEM WORKS") || cleanLine.startsWith("EXECUTION FLOW")) {
-        insideSection = true;
-        continue;
-      }
-      if (insideSection) {
-        // Detect next header
-        if (cleanLine === "WHERE TO START READING" || 
-            cleanLine === "DEVELOPER ONBOARDING" || 
-            cleanLine === "RISK & IMPORTANT AREAS" || 
-            cleanLine === "RISK AREAS") {
-          break;
-        }
-        if (line.trim()) sectionContent.push(line.trim());
-      }
-    }
-    
-    if (sectionContent.length === 0) return null;
-    
-    // Try to extract structural steps from "File A -> File B" notation
-    const steps: string[] = [];
-    sectionContent.forEach(line => {
-      if (line.includes('->')) {
-        const parts = line.split('->').map(p => p.trim().replace(/^[*\s!-]+/, ""));
-        parts.forEach(p => {
-          if (p && !steps.includes(p)) steps.push(p);
-        });
-      }
-    });
-    
-    return {
-      steps: steps.length > 0 ? steps : null,
-      raw: sectionContent.join('\n')
-    };
-  }, [aiExplanation]);
+  const { groqPrompt } = data;
+  const flow = groqPrompt?.EXECUTION_FLOW?.suggested_runtime_path || [];
 
   const flow = (groqPrompt?.execution_flow && groqPrompt.execution_flow.length > 0) 
     ? groqPrompt.execution_flow 
@@ -97,36 +54,36 @@ export default function ExecutionFlow({ data }: ExecutionFlowProps) {
         Runtime Execution Path
       </h3>
 
-      <div style={{ 
-        position: "relative", 
-        paddingLeft: "32px", 
-        display: "flex", 
-        flexDirection: "column", 
-        gap: "24px" 
+      <div style={{
+        position: "relative",
+        paddingLeft: "32px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "24px"
       }}>
         {/* Vertical Line */}
-        <div style={{ 
-          position: "absolute", 
-          left: "11px", 
-          top: "10px", 
-          bottom: "10px", 
-          width: "2px", 
-          background: "linear-gradient(to bottom, var(--accent-green) 0%, var(--accent-blue) 100%)", 
-          opacity: 0.3 
+        <div style={{
+          position: "absolute",
+          left: "11px",
+          top: "10px",
+          bottom: "10px",
+          width: "2px",
+          background: "linear-gradient(to bottom, var(--accent-green) 0%, var(--accent-blue) 100%)",
+          opacity: 0.3
         }} />
 
         {flow.map((path: string, i: number) => (
-          <div key={i} style={{ 
-            display: "flex", 
-            alignItems: "center", 
+          <div key={i} style={{
+            display: "flex",
+            alignItems: "center",
             gap: "20px",
             position: "relative"
           }}>
-            <div style={{ 
-              width: "24px", 
-              height: "24px", 
-              borderRadius: "50%", 
-              background: i === 0 ? "var(--accent-green)" : "var(--bg-tertiary)", 
+            <div style={{
+              width: "24px",
+              height: "24px",
+              borderRadius: "50%",
+              background: i === 0 ? "var(--accent-green)" : "var(--bg-tertiary)",
               border: "3px solid var(--bg-primary)",
               zIndex: 1,
               display: "flex",
@@ -138,11 +95,11 @@ export default function ExecutionFlow({ data }: ExecutionFlowProps) {
               {i === 0 ? <Play size={10} fill="currentColor" /> : <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "currentColor" }} />}
             </div>
 
-            <div style={{ 
-              flex: 1, 
-              padding: "16px 20px", 
-              background: "var(--bg-secondary)", 
-              border: "1px solid var(--border-subtle)", 
+            <div style={{
+              flex: 1,
+              padding: "16px 20px",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-subtle)",
               borderRadius: "var(--radius-md)",
               display: "flex",
               alignItems: "center",
@@ -151,19 +108,19 @@ export default function ExecutionFlow({ data }: ExecutionFlowProps) {
             }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: "14px", fontWeight: 700, fontFamily: "var(--font-geist-mono), monospace" }}>
-                   {path}
+                  {path}
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
-                   {i === 0 ? "System Entrypoint" : i < 3 ? "Middleware / Route Handler" : "Primary Logic / Controller"}
+                  {i === 0 ? "System Entrypoint" : i < 3 ? "Middleware / Route Handler" : "Primary Logic / Controller"}
                 </div>
               </div>
               <MapPin size={18} color={i === 0 ? "var(--accent-green)" : "var(--text-muted)"} />
             </div>
 
             {i < flow.length - 1 && (
-               <div style={{ position: "absolute", bottom: "-20px", left: "-2px", color: "var(--accent-blue)", opacity: 0.5 }}>
-                 <ArrowDown size={14} />
-               </div>
+              <div style={{ position: "absolute", bottom: "-20px", left: "-2px", color: "var(--accent-blue)", opacity: 0.5 }}>
+                <ArrowDown size={14} />
+              </div>
             )}
           </div>
         ))}

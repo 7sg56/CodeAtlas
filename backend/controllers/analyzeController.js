@@ -18,7 +18,10 @@ async function analyzeRepository(req, res) {
         return res.status(400).json({ error: "GitHub URL required" });
     }
 
-    const cached = getCached(url);
+    const { normalizeUrl } = require("../utils/repoCache");
+    const normalizedUrl = normalizeUrl(url);
+
+    const cached = await getCached(normalizedUrl);
     if (cached) {
         return res.json({ success: true, ...cached, cached: true });
     }
@@ -45,7 +48,7 @@ async function analyzeRepository(req, res) {
 
         // 4. Optional AWS Storage Integration (Phase 12)
         const s3Url = await storeAnalysisToS3(repoId, payload);
-        await storeMetadataToDynamo(repoId, originalName, "COMPLETED", s3Url);
+        await storeMetadataToDynamo(normalizedUrl, repoId, originalName, "COMPLETED", s3Url);
 
         // 5. Cache & Return Response
         setCached(url, payload);
