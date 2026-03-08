@@ -26,6 +26,7 @@ const { findDependencyHubs } = require("./graphAnalysis");
 const { calculateHealthScore } = require("./healthScorer");
 const { detectHotspots } = require("./hotspotDetector");
 const { generateMermaidDiagram } = require("./mermaidGenerator");
+const { buildMentalModel } = require("./mentalModelBuilder");
 
 /**
  * Phase 1 - Unified AST Extraction
@@ -146,6 +147,7 @@ async function analyzeRepo(repoPath, originalName = null) {
   const hubs = findDependencyHubs(graph);
   const hotspots = detectHotspots(fileSummaries, astContext.entrypoints, hubs, graph);
   const mermaid = generateMermaidDiagram(modules, graph.moduleEdges);
+  const mentalModel = buildMentalModel(modules, graph.moduleEdges);
 
   // Phase 14: Groq Prompt Builder
   const groqPrompt = buildGroqPrompt({
@@ -249,7 +251,8 @@ async function analyzeRepo(repoPath, originalName = null) {
     ext: { languages },
     groqPrompt,
     health,
-    hotspots
+    hotspots,
+    mentalModel
   };
 }
 

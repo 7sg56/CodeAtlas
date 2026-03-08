@@ -20,7 +20,7 @@ export default function AIExplanation({ explanation }: AIExplanationProps) {
     let currentContent: string[] = [];
 
     lines.forEach(line => {
-      const titleMatch = line.match(/^(PROJECT PURPOSE|ARCHITECTURE OVERVIEW|MODULE BREAKDOWN|EXECUTION FLOW|DEVELOPER ONBOARDING|RISK AREAS)/i);
+      const titleMatch = line.match(/^(PROJECT PURPOSE|SYSTEM ARCHITECTURE|ARCHITECTURE OVERVIEW|MODULE BREAKDOWN|HOW THE SYSTEM WORKS|EXECUTION FLOW|WHERE TO START READING|DEVELOPER ONBOARDING|RISK & IMPORTANT AREAS|RISK AREAS)/i);
       if (titleMatch) {
          if (currentContent.length > 0) {
             result.push({ title: currentTitle, content: currentContent.join("\n").trim() });

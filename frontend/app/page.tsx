@@ -8,7 +8,7 @@ import ModuleExplorer from "./components/ModuleExplorer";
 import ExecutionFlow from "./components/ExecutionFlow";
 import OnboardingGuide from "./components/OnboardingGuide";
 import RiskHotspots from "./components/RiskHotspots";
-import AIExplanation from "./components/AIExplanation";
+import AIAnalysisView from "../components/analysis/AIAnalysisView";
 import InteractiveGraph from "./components/InteractiveGraph";
 import AnalysisProgress from "./components/AnalysisProgress";
 import { buildArchitectureDiagram, buildImportExportMap } from "./utils/buildMermaidDiagram";
@@ -89,6 +89,11 @@ interface AnalysisResult {
     };
   };
   hotspots?: { file: string; reason: string }[];
+  mentalModel?: {
+    mermaid: string;
+    conceptual_components: any[];
+    interactions: any[];
+  };
   cached?: boolean;
 }
 
@@ -757,18 +762,23 @@ export default function Home() {
                 )}
 
                 {activeTab === "ai" && (
-                  <AIExplanation explanation={data.aiExplanation || ""} />
+                  <AIAnalysisView explanation={data.aiExplanation || ""} />
                 )}
 
                 {activeTab === "arch" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "40px" }}>
+                    {data.mentalModel?.mermaid && (
+                      <MermaidDiagram syntax={data.mentalModel.mermaid} title="Conceptual System Architecture" />
+                    )}
                     {data.arch?.mermaid ? (
                       <MermaidDiagram syntax={data.arch.mermaid} title="Infrastructure & Module Dependencies" />
                     ) : (
-                      <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-                        <Cpu size={48} style={{ opacity: 0.2, marginBottom: "16px" }} />
-                        <p>Architecture graph could not be synthesized for this repository.</p>
-                      </div>
+                      !data.mentalModel?.mermaid && (
+                        <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                          <Cpu size={48} style={{ opacity: 0.2, marginBottom: "16px" }} />
+                          <p>Architecture graph could not be synthesized for this repository.</p>
+                        </div>
+                      )
                     )}
                   </div>
                 )}
