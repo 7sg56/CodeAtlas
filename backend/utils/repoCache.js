@@ -1,5 +1,6 @@
 const fs = require("fs-extra");
 const path = require("path");
+const { getMetadataFromDynamo, getAnalysisFromS3 } = require("./storage/aws");
 
 // ---------------------------------------------------------------------------
 // Configuration (override via environment variables)
@@ -33,23 +34,43 @@ function normalizeUrl(url) {
 /**
  * Return a cached analysis result, or null if not cached / expired.
  * Accessing a key moves it to the "most recently used" position.
+ * This function also acts as a read-through cache for DynamoDB/S3.
  */
-function getCached(url) {
+async function getCached(url) {
   const key = normalizeUrl(url);
   const entry = cache.get(key);
-  if (!entry) return null;
-
-  // Check TTL
-  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
-    cache.delete(key);
-    return null;
+  
+  // 1. Check in-memory fast cache
+  if (entry) {
+    if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+      cache.delete(key);
+    } else {
+      // Move to end (most recently used)
+      cache.delete(key);
+      cache.set(key, entry);
+      return entry.result;
+    }
   }
 
-  // Move to end (most recently used)
-  cache.delete(key);
-  cache.set(key, entry);
+  // 2. Fallback to AWS DynamoDB + S3 Distributed Cache
+  try {
+    const metadata = await getMetadataFromDynamo(key);
+    if (metadata && metadata.analysisStatus === 'COMPLETED' && metadata.s3Url) {
+      console.log(`[AWS Cache Hit] DynamoDB metadata found for ${key}`);
+      const s3Data = await getAnalysisFromS3(metadata.s3Url);
+      
+      if (s3Data) {
+        console.log(`[AWS Cache Hit] S3 data retrieved successfully for ${key}`);
+        // Populate the rapid in-memory cache for subsequent requests
+        setCached(url, s3Data);
+        return s3Data;
+      }
+    }
+  } catch (err) {
+    console.error(`[AWS Cache Error] Failed to retrieve from distributed cache for ${key}: ${err.message}`);
+  }
 
-  return entry.result;
+  return null;
 }
 
 /**

@@ -8,9 +8,9 @@
 let S3Client, PutObjectCommand, DynamoDBClient, DynamoDBDocumentClient, PutCommand;
 
 try {
-  ({ S3Client, PutObjectCommand } = require("@aws-sdk/client-s3"));
+  ({ S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3"));
   ({ DynamoDBClient } = require("@aws-sdk/client-dynamodb"));
-  ({ DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb"));
+  ({ DynamoDBDocumentClient, PutCommand, GetCommand } = require("@aws-sdk/lib-dynamodb"));
 } catch (e) {
   console.warn("[AWS Storage] SDK not installed. AWS persistence will be disabled.");
 }
@@ -53,12 +53,13 @@ async function storeAnalysisToS3(repoId, analysis) {
 
 /**
  * Stores repository metadata to DynamoDB.
+ * @param {string} repoUrl
  * @param {string} repoId 
  * @param {string} repoName 
  * @param {string} status 
  * @param {string} s3Url
  */
-async function storeMetadataToDynamo(repoId, repoName, status, s3Url = null) {
+async function storeMetadataToDynamo(repoUrl, repoId, repoName, status, s3Url = null) {
   if (!docClient || !process.env.DYNAMODB_TABLE_NAME || !PutCommand) {
     if (!docClient) console.log(`[AWS DynamoDB] Skipping metadata for ${repoId}: DynamoDB is not configured or SDK is missing.`);
     return null;
@@ -67,6 +68,7 @@ async function storeMetadataToDynamo(repoId, repoName, status, s3Url = null) {
   const params = {
     TableName: process.env.DYNAMODB_TABLE_NAME,
     Item: {
+      repoUrl,
       repoId,
       repoName,
       analysisStatus: status,
@@ -85,4 +87,61 @@ async function storeMetadataToDynamo(repoId, repoName, status, s3Url = null) {
   }
 }
 
-module.exports = { storeAnalysisToS3, storeMetadataToDynamo };
+/**
+ * Retrieves repository metadata from DynamoDB.
+ * @param {string} repoUrl - The normalized repository URL (used as key)
+ */
+async function getMetadataFromDynamo(repoUrl) {
+  if (!docClient || !process.env.DYNAMODB_TABLE_NAME || !GetCommand) {
+    return null;
+  }
+
+  const params = {
+    TableName: process.env.DYNAMODB_TABLE_NAME,
+    Key: {
+      repoUrl
+    }
+  };
+
+  try {
+    const data = await docClient.send(new GetCommand(params));
+    return data.Item || null;
+  } catch (err) {
+    console.error(`[AWS DynamoDB] Failed to get metadata: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Retrieves full analysis JSON from S3.
+ * @param {string} s3Url - The S3 URL of the analysis.
+ */
+async function getAnalysisFromS3(s3Url) {
+  if (!s3Client || !GetObjectCommand || !s3Url) {
+    return null;
+  }
+
+  // Parse s3://bucket/key format
+  const match = s3Url.match(/^s3:\/\/([^\/]+)\/(.+)$/);
+  if (!match) return null;
+
+  const bucket = match[1];
+  const key = match[2];
+
+  const params = {
+    Bucket: bucket,
+    Key: key
+  };
+
+  try {
+    const data = await s3Client.send(new GetObjectCommand(params));
+    // The Body is a Readable stream in Node.js
+    const bodyContents = await data.Body.transformToString();
+    return JSON.parse(bodyContents);
+  } catch (err) {
+    console.error(`[AWS S3] Failed to get analysis: ${err.message}`);
+    return null;
+  }
+}
+
+module.exports = { storeAnalysisToS3, storeMetadataToDynamo, getMetadataFromDynamo, getAnalysisFromS3 };
