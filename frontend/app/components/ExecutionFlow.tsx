@@ -1,20 +1,91 @@
 "use client";
 
-import { ArrowDown, Code, MapPin, Play, Terminal } from "lucide-react";
+import { useMemo } from "react";
+import { ArrowDown, Code, MapPin, Play, Terminal, Bot } from "lucide-react";
 
 interface ExecutionFlowProps {
   data: any;
 }
 
 export default function ExecutionFlow({ data }: ExecutionFlowProps) {
-  const { groqPrompt } = data;
-  const flow = groqPrompt?.execution_flow || [];
+  const { groqPrompt, aiExplanation } = data;
+  
+  const aiFlowSteps = useMemo(() => {
+    if (!aiExplanation) return null;
+    
+    const lines = aiExplanation.split('\n');
+    let sectionContent: string[] = [];
+    let insideSection = false;
+    
+    for (const line of lines) {
+      const cleanLine = line.trim().replace(/^[#\s*]+|[#\s*]+$/g, "").toUpperCase();
+      if (cleanLine.startsWith("HOW THE SYSTEM WORKS") || cleanLine.startsWith("EXECUTION FLOW")) {
+        insideSection = true;
+        continue;
+      }
+      if (insideSection) {
+        // Detect next header
+        if (cleanLine === "WHERE TO START READING" || 
+            cleanLine === "DEVELOPER ONBOARDING" || 
+            cleanLine === "RISK & IMPORTANT AREAS" || 
+            cleanLine === "RISK AREAS") {
+          break;
+        }
+        if (line.trim()) sectionContent.push(line.trim());
+      }
+    }
+    
+    if (sectionContent.length === 0) return null;
+    
+    // Try to extract structural steps from "File A -> File B" notation
+    const steps: string[] = [];
+    sectionContent.forEach(line => {
+      if (line.includes('->')) {
+        const parts = line.split('->').map(p => p.trim().replace(/^[*\s!-]+/, ""));
+        parts.forEach(p => {
+          if (p && !steps.includes(p)) steps.push(p);
+        });
+      }
+    });
+    
+    return {
+      steps: steps.length > 0 ? steps : null,
+      raw: sectionContent.join('\n')
+    };
+  }, [aiExplanation]);
 
-  if (!flow || flow.length === 0) {
+  const flow = (groqPrompt?.execution_flow && groqPrompt.execution_flow.length > 0) 
+    ? groqPrompt.execution_flow 
+    : aiFlowSteps?.steps || [];
+
+  if (flow.length === 0) {
     return (
-      <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-        <Terminal size={48} style={{ opacity: 0.2, marginBottom: "16px" }} />
-        <p>Execution flow could not be reliably inferred for this repository.</p>
+      <div style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+        <Terminal size={48} style={{ opacity: 0.2 }} />
+        <div>
+          <p style={{ fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>Heuristic flow analysis unavailable</p>
+          <p style={{ fontSize: "13px" }}>The structural analyzer couldn't trace a reliable execution path.</p>
+        </div>
+        
+        {aiFlowSteps?.raw && (
+          <div style={{ 
+            marginTop: "20px", 
+            padding: "24px", 
+            background: "var(--bg-secondary)", 
+            border: "1px solid var(--border-subtle)", 
+            borderRadius: "var(--radius-lg)",
+            textAlign: "left",
+            maxWidth: "600px"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px", color: "var(--accent-blue)" }}>
+              <Bot size={18} />
+              <span style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" }}>AI System Architect Insights</span>
+            </div>
+            <div style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
+              {aiFlowSteps.raw}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

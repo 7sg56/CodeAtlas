@@ -29,6 +29,8 @@ STYLE RULES:
 - Avoid vague qualifiers like "appears to," "suggests," or "likely."
 - Speak like a human mentor, not a generic robot.
 - Reference actual file paths provided in the context (e.g., "backend/index.js").
+- DO NOT wrap your response in JSON code blocks. 
+- Respond ONLY with the structured Markdown sections listed below.
 
 STRICT ANTI-HALLUCINATION:
 - Use ONLY the structured data provided.
@@ -58,32 +60,29 @@ Highlight complex hubs or critical failure points detected in the analysis.
 `.trim();
 
   const prompt = {
-    REPOSITORY_CONTEXT: {
+    project: {
       name: project.name || "Unknown Project",
       type: project.type || "Software Repository",
       frameworks: project.frameworks || [],
       languages: project.languages || [],
       health_score: health?.health_score || 0
     },
-    SYSTEM_ARCHITECTURE: {
+    architecture: {
       pattern: project.architecture || "Not detected",
       module_hubs: hotspots?.slice(0, 5).map(h => h.file) || []
     },
-    MODULE_DATA: modules.map(m => ({
-      module: m.module,
+    modules: modules.map(m => ({
+      name: m.module,
       responsibility: `Handles ${m.roles?.slice(0, 2).join(', ') || 'core logic'} of ${m.responsibility_keywords?.slice(0, 3).sort().join(', ') || 'unspecified domain'}`,
       files: m.filesInModule?.slice(0, 10) || [],
+      key_functions: m.key_functions || [],
       dependencies: module_dependencies.filter(d => d.from === m.module).map(d => d.to)
     })),
-    EXECUTION_FLOW: {
-      entrypoints: entrypoints || [],
-      routes: api_routes || [],
-      suggested_runtime_path: execution_flow || []
+    execution_flow: execution_flow || [],
+    onboarding: {
+      recommended_reading_order: onboarding.recommended_reading_order || []
     },
-    DEVELOPER_ONBOARDING: {
-      reading_order: onboarding.recommended_reading_order || []
-    },
-    STRUCTURAL_RISKS: hotspots?.map(h => ({
+    structural_risks: hotspots?.map(h => ({
       file: h.file,
       complexity_reason: h.reason
     })) || [],
