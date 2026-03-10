@@ -207,18 +207,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"overview" | "arch" | "modules" | "flow" | "onboarding" | "files" | "graph" | "ai" | "api">("overview");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const apiUrl = useMemo(() => {
-    let rawUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
-    // Ensure it has a protocol
-    if (rawUrl && !rawUrl.startsWith("http")) {
-      rawUrl = `https://${rawUrl}`;
-    }
-    // Remove trailing slash
-    return rawUrl.replace(/\/$/, "");
-  }, []);
-
-  console.log("[CodeAtlas] Backend API URL:", apiUrl);
-
+  const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+  const apiUrl = rawApiUrl.startsWith("http") ? rawApiUrl.replace(/\/$/, "") : `https://${rawApiUrl}`.replace(/\/$/, "");
 
   const analyze = async () => {
     if (!url.trim()) return;

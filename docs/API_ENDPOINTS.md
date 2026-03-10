@@ -35,7 +35,8 @@ Copy `.env.example` to `.env` to configure the system. Key variables:
 
 ## Base URL
 All API requests should be prefixed with:
-`http://localhost:5001/api` (or your configured port)
+- Local: `http://localhost:5001/api`
+- Production: `https://codeatlas-production.up.railway.app/api`
 
 ---
 

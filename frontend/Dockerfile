@@ -3,11 +3,11 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Install dependencies
-COPY frontend/package*.json ./
+COPY package*.json ./
 RUN npm install
 
 # Copy application code
-COPY frontend .
+COPY . .
 
 # Build the Next.js application
 ARG NEXT_PUBLIC_API_URL
