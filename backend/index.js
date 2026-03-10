@@ -10,6 +10,10 @@ const { cleanupAllRepos, startPeriodicCleanup } = require("./utils/repoCache");
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "250mb" }));
+ 
+app.get("/", (req, res) => {
+  res.json({ message: "CodeAtlas API is running", status: "healthy", version: "v0.1" });
+});
 
 // Rate limit analysis endpoints: 10 requests per 15 minutes per IP
 const analysisLimiter = rateLimit({

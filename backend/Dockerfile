@@ -6,11 +6,11 @@ RUN apk add --no-cache git python3 make g++
 WORKDIR /app
 
 # Install dependencies (--legacy-peer-deps: tree-sitter-java peer expects ^0.21 but we use 0.25)
-COPY backend/package*.json ./
+COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 # Copy application code
-COPY backend .
+COPY . .
 
 # Expose backend port
 EXPOSE ${PORT:-5001}
