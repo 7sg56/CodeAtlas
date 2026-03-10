@@ -52,34 +52,38 @@ export default function AIAnalysisView({ explanation }: AIAnalysisViewProps) {
     };
 
     lines.forEach((line) => {
-      const l = line.trim().toUpperCase();
+      // Clean the line for comparison: remove Markdown headers (#), bold (**), and trim
+      const cleanLine = line.trim().replace(/^[#\s*]+|[#\s*]+$/g, "").toUpperCase();
       
-      if (l.startsWith("PROJECT PURPOSE")) {
+      if (cleanLine.startsWith("PROJECT PURPOSE")) {
         flush();
         currentKey = "purpose";
         content = [];
-      } else if (l.startsWith("SYSTEM ARCHITECTURE")) {
+      } else if (cleanLine.startsWith("SYSTEM ARCHITECTURE")) {
         flush();
         currentKey = "architecture";
         content = [];
-      } else if (l.startsWith("MODULE BREAKDOWN")) {
+      } else if (cleanLine.startsWith("MODULE BREAKDOWN")) {
         flush();
         currentKey = "modules";
         content = [];
-      } else if (l.startsWith("HOW THE SYSTEM WORKS") || l.startsWith("EXECUTION FLOW")) {
+      } else if (cleanLine.startsWith("HOW THE SYSTEM WORKS") || cleanLine.startsWith("EXECUTION FLOW")) {
         flush();
         currentKey = "execution";
         content = [];
-      } else if (l.startsWith("WHERE TO START READING") || l.startsWith("DEVELOPER ONBOARDING")) {
+      } else if (cleanLine.startsWith("WHERE TO START READING") || cleanLine.startsWith("DEVELOPER ONBOARDING")) {
         flush();
         currentKey = "onboarding";
         content = [];
-      } else if (l.startsWith("RISK & IMPORTANT AREAS") || l.startsWith("RISK AREAS")) {
+      } else if (cleanLine.startsWith("RISK & IMPORTANT AREAS") || cleanLine.startsWith("RISK AREAS")) {
         flush();
         currentKey = "risks";
         content = [];
       } else {
-        content.push(line);
+        // Only add if we have a currentKey and the line isn't just a header underline (e.g. --- or ===)
+        if (currentKey && !line.trim().match(/^[=-]{3,}$/)) {
+          content.push(line);
+        }
       }
     });
     flush();
