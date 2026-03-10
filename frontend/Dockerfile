@@ -10,7 +10,8 @@ RUN npm install
 COPY . .
 
 # Build the Next.js application
-RUN npm run build
+ARG NEXT_PUBLIC_API_URL
+RUN NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL npm run build
 
 # Expose frontend port
 EXPOSE 3000

@@ -726,9 +726,9 @@ export default function Home() {
                     }
                   }}
                 >
-                  <span style={{ 
+                  <span style={{
                     color: activeTab === tab.id ? "var(--accent-blue)" : "inherit",
-                    opacity: activeTab === tab.id ? 1 : 0.6 
+                    opacity: activeTab === tab.id ? 1 : 0.6
                   }}>{tab.icon}</span>
                   {tab.label}
                 </button>
@@ -749,7 +749,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-geist-mono), monospace" }}>
-                   ID: {data.id?.substring(0, 8)}
+                  ID: {data.id?.substring(0, 8)}
                 </div>
               </div>
 
@@ -806,26 +806,26 @@ export default function Home() {
                 )}
 
                 {activeTab === "api" && (
-                   <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-                      <div style={{ background: "var(--bg-secondary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)", padding: "24px" }}>
-                        <h3 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-                          <Route size={22} color="var(--accent-green)" />
-                          API Surface Area
-                        </h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                          {data.api.map((route: any, i: number) => {
-                             const [method, path, fileId] = route;
-                             return (
-                                <div key={i} style={{ display: "flex", alignItems: "center", gap: "16px", padding: "14px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
-                                   <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--accent-green)", minWidth: "50px" }}>{method}</span>
-                                   <span style={{ fontSize: "14px", fontWeight: 600, flex: 1, fontFamily: "var(--font-geist-mono), monospace" }}>{path}</span>
-                                   <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-geist-mono), monospace" }}>{data.files[fileId] || fileId}</span>
-                                </div>
-                             );
-                          })}
-                        </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                    <div style={{ background: "var(--bg-secondary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-subtle)", padding: "24px" }}>
+                      <h3 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+                        <Route size={22} color="var(--accent-green)" />
+                        API Surface Area
+                      </h3>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {data.api.map((route: any, i: number) => {
+                          const [method, path, fileId] = route;
+                          return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: "16px", padding: "14px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)" }}>
+                              <span style={{ fontSize: "11px", fontWeight: 800, color: "var(--accent-green)", minWidth: "50px" }}>{method}</span>
+                              <span style={{ fontSize: "14px", fontWeight: 600, flex: 1, fontFamily: "var(--font-geist-mono), monospace" }}>{path}</span>
+                              <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-geist-mono), monospace" }}>{data.files[fileId] || fileId}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                   </div>
+                    </div>
+                  </div>
                 )}
 
                 {activeTab === "files" && (

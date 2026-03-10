@@ -15,6 +15,12 @@ app.get("/", (req, res) => {
   res.json({ message: "CodeAtlas API is running", status: "healthy", version: "v0.1" });
 });
 
+// Health check
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "CodeAtlas Backend is live!" });
+});
+
+
 // Rate limit analysis endpoints: 10 requests per 15 minutes per IP
 const analysisLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
