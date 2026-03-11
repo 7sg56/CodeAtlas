@@ -1,14 +1,16 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { 
-  Bot, 
-  Search, 
-  Layers, 
-  Boxes, 
-  Activity, 
-  BookOpen, 
-  ShieldAlert, 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  Bot,
+  Search,
+  Layers,
+  Boxes,
+  Activity,
+  BookOpen,
+  ShieldAlert,
   Info,
   ChevronRight
 } from "lucide-react";
@@ -27,6 +29,50 @@ interface ParsedSections {
   risks: string;
 }
 
+/**
+ * Shared markdown component config for consistent rendering across all cards.
+ */
+function MarkdownContent({ content }: { content: string }) {
+  if (!content) return null;
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => <h3 className="text-zinc-200 font-bold text-base mt-4 mb-2">{children}</h3>,
+        h2: ({ children }) => <h4 className="text-zinc-200 font-bold text-sm mt-3 mb-2">{children}</h4>,
+        h3: ({ children }) => <h5 className="text-zinc-300 font-semibold text-sm mt-3 mb-1">{children}</h5>,
+        h4: ({ children }) => <h6 className="text-zinc-300 font-semibold text-xs mt-2 mb-1">{children}</h6>,
+        p: ({ children }) => <p className="text-zinc-400 leading-relaxed my-1.5 text-[14px]">{children}</p>,
+        ul: ({ children }) => <ul className="my-2 ml-4 space-y-1 list-disc text-zinc-400 text-[14px]">{children}</ul>,
+        ol: ({ children }) => <ol className="my-2 ml-4 space-y-1 list-decimal text-zinc-400 text-[14px]">{children}</ol>,
+        li: ({ children }) => <li className="text-zinc-400 leading-relaxed">{children}</li>,
+        strong: ({ children }) => <strong className="text-zinc-200 font-semibold">{children}</strong>,
+        em: ({ children }) => <em className="text-zinc-300 italic">{children}</em>,
+        code: ({ children, className }) => {
+          const isBlock = className?.includes('language-');
+          if (isBlock) {
+            return (
+              <pre className="bg-zinc-800/60 rounded-lg p-3 my-2 overflow-x-auto border border-zinc-700/50">
+                <code className="text-indigo-300 text-xs font-mono">{children}</code>
+              </pre>
+            );
+          }
+          return <code className="text-indigo-300 bg-zinc-800/60 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>;
+        },
+        pre: ({ children }) => <>{children}</>,
+        a: ({ href, children }) => <a href={href} className="text-indigo-400 hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+        blockquote: ({ children }) => <blockquote className="border-l-2 border-indigo-500/30 pl-3 my-2 text-zinc-400 italic">{children}</blockquote>,
+        hr: () => <hr className="border-zinc-700/50 my-4" />,
+        table: ({ children }) => <table className="w-full text-sm text-zinc-400 my-2 border-collapse">{children}</table>,
+        th: ({ children }) => <th className="text-left text-zinc-300 font-semibold px-2 py-1 border-b border-zinc-700">{children}</th>,
+        td: ({ children }) => <td className="px-2 py-1 border-b border-zinc-800">{children}</td>,
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+}
+
 export default function AIAnalysisView({ explanation }: AIAnalysisViewProps) {
   const sections = useMemo(() => {
     if (!explanation) return null;
@@ -40,7 +86,6 @@ export default function AIAnalysisView({ explanation }: AIAnalysisViewProps) {
       risks: "",
     };
 
-    // The current backend uses these exact headers
     const lines = explanation.split("\n");
     let currentKey: keyof ParsedSections | null = null;
     let content: string[] = [];
@@ -52,9 +97,8 @@ export default function AIAnalysisView({ explanation }: AIAnalysisViewProps) {
     };
 
     lines.forEach((line) => {
-      // Clean the line for comparison: remove Markdown headers (#), bold (**), and trim
       const cleanLine = line.trim().replace(/^[#\s*]+|[#\s*]+$/g, "").toUpperCase();
-      
+
       if (cleanLine.startsWith("PROJECT PURPOSE")) {
         flush();
         currentKey = "purpose";
@@ -80,7 +124,6 @@ export default function AIAnalysisView({ explanation }: AIAnalysisViewProps) {
         currentKey = "risks";
         content = [];
       } else {
-        // Only add if we have a currentKey and the line isn't just a header underline (e.g. --- or ===)
         if (currentKey && !line.trim().match(/^[=-]{3,}$/)) {
           content.push(line);
         }
@@ -101,9 +144,6 @@ export default function AIAnalysisView({ explanation }: AIAnalysisViewProps) {
     );
   }
 
-  // Purpose formatting - extracting first high-level sentence for header
-  const firstSentence = sections.purpose.split(/[.!?]/)[0] + ".";
-
   return (
     <div className="flex flex-col gap-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header Section */}
@@ -119,58 +159,36 @@ export default function AIAnalysisView({ explanation }: AIAnalysisViewProps) {
             </p>
           </div>
         </div>
-        {/* Subtle decorative glow */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 blur-[120px] pointer-events-none" />
       </div>
 
       {/* Grid Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <AnalysisCard title="Project Purpose" icon={Search} accentColor="#6c8cff">
-          {sections.purpose || "No specific purpose detected."}
+          <MarkdownContent content={sections.purpose || "No specific purpose detected."} />
         </AnalysisCard>
-        
+
         <AnalysisCard title="System Architecture" icon={Layers} accentColor="#a87cff">
-          {sections.architecture || "Not detected from analysis."}
+          <MarkdownContent content={sections.architecture || "Not detected from analysis."} />
         </AnalysisCard>
-        
+
         <AnalysisCard title="Module Breakdown" icon={Boxes} accentColor="#5ce0a0">
-          <div className="space-y-4 py-2">
-            {sections.modules ? (
-               sections.modules.split('\n').map((line, i) => {
-                 const isHeader = line.includes(':') && line.length < 50;
-                 return (
-                   <div key={i} className={isHeader ? "text-white font-bold text-sm uppercase tracking-wide mt-2 first:mt-0" : "flex items-start gap-2 text-zinc-400"}>
-                     {!isHeader && line.trim() && <ChevronRight size={14} className="mt-1 text-emerald-500 shrink-0" />}
-                     <span>{line}</span>
-                   </div>
-                 );
-               })
-            ) : "No clusters detected."}
-          </div>
+          <MarkdownContent content={sections.modules || "No clusters detected."} />
         </AnalysisCard>
-        
+
         <AnalysisCard title="Execution Flow" icon={Activity} accentColor="#f0b060">
-          <div className="bg-black/20 p-4 rounded-lg border border-white/5 font-mono text-sm">
-            {sections.execution || "Flow analysis unknown."}
+          <div className="bg-black/20 p-4 rounded-lg border border-white/5">
+            <MarkdownContent content={sections.execution || "Flow analysis unknown."} />
           </div>
         </AnalysisCard>
-        
+
         <AnalysisCard title="Developer Onboarding" icon={BookOpen} accentColor="#50d0e0">
-          <div className="space-y-3">
-             {sections.onboarding ? (
-               sections.onboarding.split('\n').map((line, i) => (
-                 <div key={i} className="flex gap-3 text-zinc-300">
-                    {line.trim() && <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-2 shrink-0" />}
-                    <span>{line}</span>
-                 </div>
-               ))
-             ) : "No specific guidance detected."}
-          </div>
+          <MarkdownContent content={sections.onboarding || "No specific guidance detected."} />
         </AnalysisCard>
-        
+
         <AnalysisCard title="Risk & Important Areas" icon={ShieldAlert} accentColor="#ff6b7a">
-          <div className="bg-red-500/5 p-4 rounded-lg border border-red-500/10 text-red-100/80">
-            {sections.risks || "No critical bottlenecks detected."}
+          <div className="bg-red-500/5 p-4 rounded-lg border border-red-500/10">
+            <MarkdownContent content={sections.risks || "No critical bottlenecks detected."} />
           </div>
         </AnalysisCard>
       </div>

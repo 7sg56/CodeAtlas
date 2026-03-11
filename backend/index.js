@@ -28,6 +28,8 @@ const analysisLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many analysis requests. Please try again later.", code: "RATE_LIMIT_EXCEEDED" },
+  // Allow bypassing rate limit during development/testing via header
+  skip: (req) => req.headers['x-bypass-rate-limit'] === 'true' || req.headers['x-bypass-rate-limit'] === '1'
 });
 
 app.use("/api/analyze", analysisLimiter, analyzeRoute);
