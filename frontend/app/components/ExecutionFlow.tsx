@@ -9,7 +9,7 @@ interface ExecutionFlowProps {
 
 export default function ExecutionFlow({ data }: ExecutionFlowProps) {
   const { groqPrompt } = data;
-  const flow = groqPrompt?.execution_flow || groqPrompt?.EXECUTION_FLOW?.suggested_runtime_path || [];
+  const flow = groqPrompt?.execution_flow || [];
 
   if (flow.length === 0) {
     return (

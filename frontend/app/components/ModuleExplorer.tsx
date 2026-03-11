@@ -9,7 +9,7 @@ interface ModuleExplorerProps {
 
 export default function ModuleExplorer({ data }: ModuleExplorerProps) {
   const { groqPrompt } = data;
-  const modules = groqPrompt?.MODULE_DATA || [];
+  const modules = groqPrompt?.modules || [];
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggle = (name: string) => {

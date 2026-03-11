@@ -8,7 +8,7 @@ interface OnboardingGuideProps {
 
 export default function OnboardingGuide({ data }: OnboardingGuideProps) {
   const { groqPrompt } = data;
-  const onboarding = groqPrompt?.DEVELOPER_ONBOARDING?.reading_order || [];
+  const onboarding = groqPrompt?.onboarding?.recommended_reading_order || [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "32px", animation: "fade-in 0.5s ease" }}>

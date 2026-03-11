@@ -63,9 +63,11 @@ Highlight complex hubs or critical failure points detected in the analysis.
     project: {
       name: project.name || "Unknown Project",
       type: project.type || "Software Repository",
+      purpose: project.purpose || "Not determined",
       frameworks: project.frameworks || [],
       languages: project.languages || [],
-      health_score: health?.health_score || 0
+      health_score: health?.health_score || 0,
+      readme_excerpt: (project.readme_excerpt || "").substring(0, 1500) || "No README available"
     },
     architecture: {
       pattern: project.architecture || "Not detected",

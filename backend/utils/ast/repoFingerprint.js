@@ -13,8 +13,20 @@ function buildRepoFingerprint({ frameworks, languages, entrypoints, routes, conf
   const cli_tool = entrypoints && entrypoints.some(ep => ep.includes('bin') || ep.includes('cli') || ep.includes('main'));
   const library = !api_service && !frontend_present && entrypoints && entrypoints.some(ep => ep.includes('index') || ep.includes('exports'));
 
+  // System-level signals for non-web projects
+  const configs = (configFiles || []).map(f => f.toLowerCase());
+  const makefile_present = configs.some(f => f.includes('makefile') || f.endsWith('.mk'));
+  const cmake_present = configs.some(f => f.includes('cmakelists') || f.includes('cmake'));
+  const kernel_module = configs.some(f => f.includes('kconfig') || f.includes('kbuild'));
+  const autotools_present = configs.some(f => f.includes('configure.ac') || f.includes('autogen') || f.includes('config.h.in'));
+
+  // Language-based signals
+  const langSet = new Set((languages || []).map(l => l.toLowerCase()));
+  const systems_language_dominant = langSet.has('c') || langSet.has('c++') || langSet.has('rust');
+
   return {
     frameworks: frameworks || [],
+    languages: languages || [],
     entrypoints: entrypoints || [],
     api_routes: routes || [],
     config_files: configFiles || [],
@@ -23,7 +35,12 @@ function buildRepoFingerprint({ frameworks, languages, entrypoints, routes, conf
       frontend_present,
       backend_present,
       cli_tool,
-      library
+      library,
+      makefile_present,
+      cmake_present,
+      kernel_module,
+      autotools_present,
+      systems_language_dominant
     }
   };
 }

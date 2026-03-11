@@ -9,6 +9,7 @@ const { classifyFile } = require("./fileClassifier");
 const { extractFileMetadata } = require("./extractors/fileMetadata");
 const { buildTree, countNodes, detectLanguages } = require("../scanner");
 const path = require("path");
+const fs = require("fs-extra");
 
 // Semantic Intelligence Modules
 const { generateFileSemanticSummary } = require("./fileSemanticSummary");
@@ -43,8 +44,8 @@ async function extractAST(repoPath) {
   for await (const parsed of walkAndParse(repoPath)) {
     const fileName = path.basename(parsed.relativePath).toLowerCase();
     
-    // Config files detection
-    if (['package.json', 'dockerfile', 'ts-config', 'requirements.txt', 'go.mod', 'cargo.toml'].some(f => fileName.includes(f))) {
+    // Config files detection (includes system-level build files)
+    if (['package.json', 'dockerfile', 'ts-config', 'requirements.txt', 'go.mod', 'cargo.toml', 'makefile', 'cmakelists', 'kconfig', 'kbuild', 'configure.ac', 'meson.build'].some(f => fileName.includes(f))) {
       configFiles.push(parsed.relativePath);
     }
 
@@ -120,6 +121,22 @@ async function analyzeRepo(repoPath, originalName = null) {
   const stats = countNodes(structure);
   const languages = detectLanguages(structure);
 
+  // Read README for AI context enrichment
+  let readmeExcerpt = '';
+  try {
+    const readmeCandidates = ['README.md', 'readme.md', 'README.rst', 'README', 'README.txt'];
+    for (const candidate of readmeCandidates) {
+      const readmePath = path.join(repoPath, candidate);
+      if (await fs.pathExists(readmePath)) {
+        const content = await fs.readFile(readmePath, 'utf-8');
+        readmeExcerpt = content.substring(0, 2000);
+        break;
+      }
+    }
+  } catch (e) {
+    console.warn('[Analyzer] Could not read README:', e.message);
+  }
+
   // Phase 1: Unified AST Extraction
   const astContext = await extractAST(repoPath);
 
@@ -131,7 +148,7 @@ async function analyzeRepo(repoPath, originalName = null) {
     languages: Array.from(new Set(languages.map(l => l.language.toLowerCase()))),
     entrypoints: astContext.entrypoints.map(e => e.file).slice(0, 5),
     routes: astContext.routes.map(r => `${r.method} ${r.path}`).slice(0, 10),
-    configFiles: astContext.configFiles.slice(0, 5)
+    configFiles: astContext.configFiles.slice(0, 10)
   });
 
   const modules = buildModuleClusters(fileSummaries);
@@ -140,7 +157,7 @@ async function analyzeRepo(repoPath, originalName = null) {
   const graphOnboarding = onboardingPathFromGraph(graph);
   const architecture = detectArchitecturePattern(fileSummaries, fingerprint);
   const executionFlow = buildExecutionFlow(fingerprint, fileSummaries);
-  const purposeInfo = inferProjectPurpose(fingerprint, modules);
+  const purposeInfo = inferProjectPurpose(fingerprint, modules, readmeExcerpt);
 
   // Phase 11-13: Advanced Architecture Insights
   const health = calculateHealthScore(fileSummaries, modules, graph, stats);
@@ -157,7 +174,8 @@ async function analyzeRepo(repoPath, originalName = null) {
       architecture: architecture.architecture,
       purpose: purposeInfo.purpose,
       frameworks: fingerprint.frameworks,
-      languages: fingerprint.languages
+      languages: fingerprint.languages,
+      readme_excerpt: readmeExcerpt
     },
     modules,
     module_dependencies: graph.moduleEdges,

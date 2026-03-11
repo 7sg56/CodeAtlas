@@ -1,0 +1,6 @@
+# Ignore node_modules so native addons get built for the container's architecture
+**/node_modules
+**/.next
+**/.env
+.git
+repos
